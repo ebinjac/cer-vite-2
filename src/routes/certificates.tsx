@@ -15,17 +15,12 @@ function CertificatesPage() {
   return (
     <PageTransition keyId="certificates">
       <div className="p-6">
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold">Certificates</h1>
-          <p className="text-muted-foreground">
-            Managing certificates for <span className="font-medium text-primary">{selectedTeam}</span> team
-          </p>
-        </div>
         <CertificatesTable 
           data={data || []} 
           isLoading={isLoading} 
           isError={isError} 
           error={error as Error} 
+          teamName={selectedTeam}
         />
       </div>
     </PageTransition>

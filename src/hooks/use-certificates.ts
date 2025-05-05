@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { CheckCircle, XCircle, Clock } from 'lucide-react'
+import * as React from 'react'
 
 // Certificate type definition
 export interface Certificate {
@@ -32,8 +34,10 @@ export interface Certificate {
   uri: string
 }
 
+export type CertificateCustomStatus = 'Valid' | 'Expiring Soon' | 'Expired';
+
 // API endpoint
-const CERT_API = 'https://mocki.io/v1/41d9dd5c-1bab-44e3-a80f-b6cdaebdf70b'
+const CERT_API = 'https://mocki.io/v1/628243bc-9d5f-4708-b4e5-9fd53c486bae'
 
 // Helper functions
 export function formatDate(dateString: string): string {
@@ -41,6 +45,46 @@ export function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString();
 }
+
+export function getDaysUntilExpiration(validTo: string): number | null {
+  if (!validTo) return null;
+  
+  const validToDate = new Date(validTo);
+  const today = new Date();
+  
+  // Clear time part for accurate day calculation
+  validToDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  const diffTime = validToDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays > 0 ? diffDays : 0;
+}
+
+export function getCertificateCustomStatus(validTo: string): CertificateCustomStatus {
+  const daysUntil = getDaysUntilExpiration(validTo);
+  
+  if (daysUntil === 0) {
+    return 'Expired';
+  } else if (daysUntil && daysUntil <= 30) {
+    return 'Expiring Soon';
+  } else {
+    return 'Valid';
+  }
+}
+
+export const customStatusColors: Record<CertificateCustomStatus, string> = {
+  'Valid': 'bg-green-100 text-green-800 hover:bg-green-200/80',
+  'Expiring Soon': 'bg-amber-100 text-amber-800 hover:bg-amber-200/80',
+  'Expired': 'bg-red-100 text-red-800 hover:bg-red-200/80',
+};
+
+export const customStatusIcons: Record<CertificateCustomStatus, React.ReactElement> = {
+  'Valid': React.createElement(CheckCircle, { className: "h-4 w-4 text-green-500" }),
+  'Expiring Soon': React.createElement(Clock, { className: "h-4 w-4 text-amber-500" }),
+  'Expired': React.createElement(XCircle, { className: "h-4 w-4 text-destructive" }),
+};
 
 /**
  * Custom hook to fetch certificate data

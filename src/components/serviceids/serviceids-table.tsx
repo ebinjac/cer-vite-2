@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table'
-import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, RefreshCcw } from 'lucide-react'
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { motion, AnimatePresence } from 'framer-motion'
@@ -56,15 +56,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Certificate } from '@/hooks/use-certificates'
+import type { ServiceId } from '@/hooks/use-serviceids'
 import { 
   formatDate as originalFormatDate, 
   getDaysUntilExpiration as originalGetDaysUntilExpiration, 
-  getCertificateCustomStatus as originalGetCertificateCustomStatus,
+  getServiceIdCustomStatus as originalGetServiceIdCustomStatus,
   customStatusColors,
   customStatusIcons,
-  type CertificateCustomStatus
-} from '@/hooks/use-certificates'
+  statusColors,
+  statusIcons,
+  type ServiceIdCustomStatus
+} from '@/hooks/use-serviceids'
 import { useTeamStore } from '@/store/team-store'
 import { cn } from '@/lib/utils'
 
@@ -122,26 +124,12 @@ type AdvFilters = {
   customFilters: FilterCriteria[]
 }
 
-interface CertificateTableProps {
-  data: Certificate[]
+interface ServiceIdTableProps {
+  data: ServiceId[]
   isLoading: boolean
   isError: boolean
   error?: Error | null
   teamName?: string
-}
-
-const statusIcons: Record<string, React.ReactNode> = {
-  Issued: <CheckCircle className="h-4 w-4 text-green-500" />,
-  Expired: <XCircle className="h-4 w-4 text-destructive" />,
-  Pending: <Clock className="h-4 w-4 text-amber-500" />,
-  Revoked: <XCircle className="h-4 w-4 text-gray-500" />,
-}
-
-const statusColors: Record<string, string> = {
-  Issued: 'bg-green-100 text-green-800 hover:bg-green-200/80',
-  Expired: 'bg-red-100 text-red-800 hover:bg-red-200/80',
-  Pending: 'bg-amber-100 text-amber-800 hover:bg-amber-200/80',
-  Revoked: 'bg-gray-100 text-gray-800 hover:bg-gray-200/80',
 }
 
 // Helper function for memoizing expensive operations
@@ -199,13 +187,13 @@ function getDaysUntilExpiration(validTo: any): number | null {
   }
 }
 
-// Add safety checks to getCertificateCustomStatus
-function getCertificateCustomStatus(validTo: any): CertificateCustomStatus {
+// Add safety checks to getServiceIdCustomStatus
+function getServiceIdCustomStatus(validTo: any): ServiceIdCustomStatus {
   try {
-    return originalGetCertificateCustomStatus(validTo);
+    return originalGetServiceIdCustomStatus(validTo);
   } catch (error) {
-    // Default to expired on error
-    return 'Expired';
+    // Default to Non-Compliant on error
+    return 'Non-Compliant';
   }
 }
 
@@ -357,7 +345,7 @@ function MotionDaysLeft({ days }: { days: number | null }) {
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 400, damping: 10 }}
         >
-          Expired
+          Non-Compliant
         </motion.span>
       ) : (
         <>
@@ -505,65 +493,45 @@ const createFuzzyFilter = () => React.useCallback(
 type AllColumnIds = 
   | 'select'
   | 'actions'
-  | 'commonName'
-  | 'serialNumber'
+  | 'svcid'
+  | 'env'
+  | 'application'
+  | 'lastReset'
+  | 'expDate'
+  | 'renewalProcess'
+  | 'status'
   | 'customStatus'
-  | 'validFrom'
-  | 'validTo'
-  | 'applicationName'
-  | 'zeroTouch'
-  | 'hostingTeamName'
-  | 'certificatePurpose'
-  | 'certificateStatus'
-  | 'comment'
-  | 'certificateIdentifier'
-  | 'currentCert'
-  | 'environment'
-  | 'subjectAlternateNames'
-  | 'issuerCertAuthName'
-  | 'certType'
-  | 'idaasIntegrationId'
-  | 'isAmexCert'
-  | 'centralID'
-  | 'uri'
   | 'acknowledgedBy'
+  | 'appCustodian'
+  | 'svcidOwner'
+  | 'appAimId'
+  | 'description'
+  | 'comment'
   | 'lastNotification'
   | 'lastNotificationOn'
   | 'renewingTeamName'
   | 'changeNumber'
-  | 'serverName'
-  | 'keystorePath'
   | 'daysLeft'
 
-// Update column categories with proper typing
+// Update column categories to ensure comment is always last
 const columnCategories: Record<string, readonly AllColumnIds[]> = {
   essential: [
     'select',
-    'commonName',
-    'serialNumber',
+    'svcid',
     'customStatus',
-    'validFrom',
-    'validTo',
     'daysLeft',
-    'applicationName',
-    'zeroTouch',
-    'hostingTeamName',
-    'certificatePurpose',
-    'certificateStatus'
+    'lastReset',
+    'expDate',
+    'application',
+    'env',
   ],
   details: [
-    'certificateIdentifier',
-    'currentCert',
-    'environment',
-    'subjectAlternateNames',
-    'issuerCertAuthName',
-    'certType'
-  ],
-  integration: [
-    'idaasIntegrationId',
-    'isAmexCert',
-    'centralID',
-    'uri'
+    'status',
+    'renewalProcess',
+    'appAimId',
+    'description',
+    'svcidOwner',
+    'appCustodian',
   ],
   management: [
     'acknowledgedBy',
@@ -571,8 +539,9 @@ const columnCategories: Record<string, readonly AllColumnIds[]> = {
     'lastNotificationOn',
     'renewingTeamName',
     'changeNumber',
-    'serverName',
-    'keystorePath'
+  ],
+  additional: [
+    'comment',
   ]
 } as const;
 
@@ -627,34 +596,24 @@ type StickyStyles = {
 const getFormattedColumnName = (columnId: string): string => {
   const columnMap: Record<string, string> = {
     select: 'Select',
-    commonName: 'Common Name',
-    serialNumber: 'Serial Number',
-    customStatus: 'Status',
-    validFrom: 'Valid From',
-    validTo: 'Valid To',
-    applicationName: 'Application',
-    zeroTouch: 'Zero Touch',
-    hostingTeamName: 'Hosting Team',
-    certificatePurpose: 'Purpose',
-    certificateStatus: 'Certificate Status',
-    comment: 'Comment',
-    certificateIdentifier: 'Certificate Identifier',
-    currentCert: 'Current Cert',
-    environment: 'Environment',
-    subjectAlternateNames: 'Subject Alternate Names',
-    issuerCertAuthName: 'Issuer',
-    certType: 'Certificate Type',
-    idaasIntegrationId: 'IDaaS Integration ID',
-    isAmexCert: 'Is Amex Cert',
-    centralID: 'Central ID',
-    uri: 'URI',
+    svcid: 'Service ID',
+    env: 'Environment',
+    application: 'Application',
+    lastReset: 'Last Reset',
+    expDate: 'Expiration Date',
+    renewalProcess: 'Renewal Process',
+    status: 'Status',
+    customStatus: 'Custom Status',
     acknowledgedBy: 'Acknowledged By',
+    appCustodian: 'App Custodian',
+    svcidOwner: 'Svc ID Owner',
+    appAimId: 'App Aim ID',
+    description: 'Description',
+    comment: 'Comment',
     lastNotification: 'Last Notification',
     lastNotificationOn: 'Last Notification On',
     renewingTeamName: 'Renewing Team',
     changeNumber: 'Change Number',
-    serverName: 'Server',
-    keystorePath: 'Keystore Path',
     daysLeft: 'Days Left',
   };
 
@@ -691,7 +650,7 @@ function getDaySuffix(day: number): string {
 }
 
 // First add a utility function to convert table data to CSV and download it
-function downloadTableAsCSV(data: Certificate[], visibleColumns: string[]) {
+function downloadTableAsCSV(data: ServiceId[], visibleColumns: string[]) {
   // Get all column headers except select and actions
   const columns = visibleColumns.filter(col => col !== 'select' && col !== 'actions');
   
@@ -704,15 +663,15 @@ function downloadTableAsCSV(data: Certificate[], visibleColumns: string[]) {
       // Handle special columns
       let value: string;
       if (col === 'customStatus') {
-        value = getCertificateCustomStatus(cert.validTo);
+        value = getServiceIdCustomStatus(cert.expDate);
       } else if (col === 'daysLeft') {
-        const days = getDaysUntilExpiration(cert.validTo);
+        const days = getDaysUntilExpiration(cert.expDate);
         value = days === 0 ? 'Expired' : days ? `${days} days` : '';
       } else {
         // Access the regular field
-        const rawValue = cert[col as keyof Certificate];
+        const rawValue = cert[col as keyof ServiceId];
         // Format date fields
-        if (col === 'validFrom' || col === 'validTo' || col === 'lastNotificationOn') {
+        if (col === 'lastReset' || col === 'expDate' || col === 'lastNotificationOn') {
           value = rawValue ? formatDate(rawValue as string) : '';
         } else {
           value = rawValue !== undefined ? String(rawValue) : '';
@@ -730,7 +689,7 @@ function downloadTableAsCSV(data: Certificate[], visibleColumns: string[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `certificates_export_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `serviceids_export_${new Date().toISOString().slice(0, 10)}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -807,83 +766,71 @@ function MotionCheckbox({ checked, onChange, label }: {
   );
 }
 
-export function CertificatesTable({ data, isLoading, isError, error, teamName }: CertificateTableProps) {
+// Make the ServiceIdsTable a const instead of a function
+const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceIdTableProps) => {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const debouncedGlobalFilter = useDebouncedValue(globalFilter, 300)
   const [rowSelection, setRowSelection] = React.useState({})
-  const [statusFilter, setStatusFilter] = React.useState<CertificateCustomStatus[]>([])
+  const [statusFilter, setStatusFilter] = React.useState<ServiceIdCustomStatus[]>([])
   const [expirationFilter, setExpirationFilter] = React.useState<string[]>([])
   const { selectedTeam } = useTeamStore()
   
   // Add column visibility state
   const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>({
     select: true,
-    commonName: true,
-    serialNumber: true,
+    svcid: true,
+    env: true,
+    application: true,
     customStatus: true,
-    validFrom: true,
-    validTo: true,
+    status: false,
+    expDate: true,
     daysLeft: true,
-    applicationName: true,
-    zeroTouch: true,
-    hostingTeamName: true,
-    certificatePurpose: true,
-    certificateStatus: true,
-    comment: true,
-    actions: true,
-    // Hide other columns initially
-    certificateIdentifier: false,
-    currentCert: false,
-    environment: false,
-    subjectAlternateNames: false,
-    issuerCertAuthName: false,
-    certType: false,
-    idaasIntegrationId: false,
-    isAmexCert: false,
-    centralID: false,
-    uri: false,
+    lastReset: true,
+    renewalProcess: false,
     acknowledgedBy: false,
+    appCustodian: false,
+    svcidOwner: false,
+    appAimId: false,
+    description: false,
+    comment: true,
     lastNotification: false,
     lastNotificationOn: false,
     renewingTeamName: false,
     changeNumber: false,
-    serverName: false,
-    keystorePath: false,
+    actions: true,
   })
   const [tempColumnVisibility, setTempColumnVisibility] = React.useState<ColumnVisibilityState>(columnVisibility)
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
+    console.log('Expiration filter change', value, checked);
     if (checked) {
-      setExpirationFilter(prev => [...prev, value])
+      setExpirationFilter(prev => [...prev, value]);
     } else {
-      setExpirationFilter(prev => prev.filter(v => v !== value))
+      setExpirationFilter(prev => prev.filter(v => v !== value));
     }
   }
 
   // Handle status filter change
-  const handleStatusFilterChange = (status: CertificateCustomStatus, checked: boolean) => {
+  const handleStatusFilterChange = (status: ServiceIdCustomStatus, checked: boolean) => {
+    console.log('Status filter change', status, checked);
     if (checked) {
-      setStatusFilter(prev => [...prev, status])
+      setStatusFilter(prev => [...prev, status]);
     } else {
-      setStatusFilter(prev => prev.filter(s => s !== status))
+      setStatusFilter(prev => prev.filter(s => s !== status));
     }
   }
   
   // Generate array of all searchable fields
   const searchableFields = React.useMemo(() => [
-    'commonName', 'certificateStatus', 'certificatePurpose', 
-    'environment', 'issuerCertAuthName', 'hostingTeamName', 
-    'renewingTeamName', 'applicationName', 'serverName', 
-    'serialNumber', 'uri', 'certType', 'validFrom', 'validTo',
-    'certificateIdentifier', 'currentCert', 'subjectAlternateNames',
-    'zeroTouch', 'idaasIntegrationId', 'isAmexCert', 'acknowledgedBy',
-    'centralID', 'comment', 'lastNotification', 'lastNotificationOn',
-    'changeNumber', 'keystorePath'
-  ], [])
+    'svcid', 'status', 'env', 'application', 'lastReset', 'expDate', 
+    'renewalProcess', 'acknowledgedBy', 'appCustodian', 'svcidOwner', 
+    'appAimId', 'description', 'comment', 'lastNotification', 
+    'lastNotificationOn', 'renewingTeamName', 'changeNumber'
+  ], []);
   
   // Create all needed hooks at the top level of the component
   const tableContainerRef = React.useRef<HTMLDivElement>(null)
@@ -909,28 +856,30 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
     []
   );
   
-  // Extract useMemo hooks to top level
-  const availableCustomStatuses = React.useMemo<CertificateCustomStatus[]>(() => {
-    return ['Valid', 'Expiring Soon', 'Expired'];
+  // Replace the availableCertStatuses
+  const availableCustomStatuses = React.useMemo<ServiceIdCustomStatus[]>(() => {
+    return ['Valid', 'Expiring Soon', 'Non-Compliant'];
   }, []);
 
-  const availableCertStatuses = React.useMemo(() => {
-    return Array.from(new Set(data.map(cert => cert.certificateStatus)))
-      .filter(status => status && status.trim() !== '')
+  const availableStatuses = React.useMemo(() => {
+    return Array.from(new Set(data.map(svc => svc.status)))
+      .filter(status => status && status.trim() !== '');
   }, [data]);
   
+  // Replace the availableEnvironments and other related arrays
   const availableEnvironments = React.useMemo(() => {
-    return Array.from(new Set(data.map(cert => cert.environment)))
+    return Array.from(new Set(data.map(svc => svc.env)))
+      .filter(env => env && env.trim() !== '');
   }, [data]);
   
-  const availablePurposes = React.useMemo(() => {
-    return Array.from(new Set(data.map(cert => cert.certificatePurpose)))
+  const availableCertPurposes = React.useMemo(() => {
+    return Array.from(new Set(data.map(svc => svc.application)))
+      .filter(app => app && app.trim() !== '');
   }, [data]);
   
   const availableTeams = React.useMemo(() => {
-    const hostingTeams = data.map(cert => cert.hostingTeamName)
-    const renewingTeams = data.map(cert => cert.renewingTeamName)
-    return Array.from(new Set([...hostingTeams, ...renewingTeams].filter(Boolean)))
+    const renewingTeams = data.map(svc => svc.renewingTeamName);
+    return Array.from(new Set(renewingTeams.filter(Boolean)));
   }, [data]);
 
   // Available expiration options
@@ -945,30 +894,32 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
   // Memoize filtered data
   const filteredData = React.useMemo(() => {
     try {
+      console.log('Filtering data with filters:', { statusFilter, expirationFilter, selectedTeam });
       let filtered = [...data];
 
       if (selectedTeam) {
-        filtered = filtered.filter(cert => 
-          (cert?.hostingTeamName === selectedTeam || 
-           cert?.renewingTeamName === selectedTeam) ?? false
+        filtered = filtered.filter(svc => 
+          svc?.renewingTeamName === selectedTeam
         );
       }
 
       if (expirationFilter.length > 0) {
-        filtered = filtered.filter(cert => {
-          const daysUntil = getDaysUntilExpiration(cert?.validTo);
+        filtered = filtered.filter(svc => {
+          const daysUntil = getDaysUntilExpiration(svc?.expDate);
           // Check if days until expiration is less than or equal to any of the selected filters
           return daysUntil !== null && expirationFilter.some(days => daysUntil <= parseInt(days));
         });
       }
 
       if (statusFilter.length > 0) {
-        filtered = filtered.filter(cert => {
-          const customStatus = getCertificateCustomStatus(cert?.validTo);
+        filtered = filtered.filter(svc => {
+          const customStatus = getServiceIdCustomStatus(svc?.expDate);
+          console.log('Checking status:', customStatus, 'against filters:', statusFilter);
           return statusFilter.includes(customStatus);
         });
       }
 
+      console.log('Filtered data count:', filtered.length);
       return filtered;
     } catch (error) {
       console.error("Error filtering data:", error);
@@ -986,7 +937,8 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
   }, [filteredData.length]);
   
   // Memoize columns to prevent unnecessary re-renders
-  const columns = React.useMemo<ColumnDef<Certificate>[]>(() => [
+  const columns = React.useMemo<ColumnDef<ServiceId>[]>(() => [
+    // 1. Select
     {
       id: 'select',
       header: ({ table }) => (
@@ -1009,15 +961,16 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
       enableSorting: false,
       enableHiding: false,
     },
+    // 2. Service ID
     {
-      accessorKey: 'commonName',
+      accessorKey: 'svcid',
       header: ({ column }) => (
         <AnimatedColumnHeader column={column} className="p-0 h-auto font-medium">
-          Common Name
+          Service ID
         </AnimatedColumnHeader>
       ),
       cell: ({ row }) => {
-        const value = row.getValue('commonName') as string;
+        const value = row.getValue('svcid') as string;
         return (
           <div 
             className="font-medium overflow-hidden text-ellipsis min-w-[150px] break-words" 
@@ -1026,44 +979,24 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
             {globalFilter ? (
               <MemoizedHighlightedText text={value} highlight={globalFilter} />
             ) : (
-              <CopyableText text={value} fieldName="Common Name" />
+              <CopyableText text={value} fieldName="Service ID" />
             )}
           </div>
         );
       },
       enableSorting: true,
     },
-    {
-      accessorKey: 'serialNumber',
-      header: ({ column }) => (
-        <AnimatedColumnHeader column={column} className="p-0 h-auto font-medium">
-          Serial Number
-        </AnimatedColumnHeader>
-      ),
-      cell: ({ row }) => {
-        const serial = row.getValue('serialNumber') as string;
-        return (
-          <div className="font-mono text-xs">
-            {globalFilter ? (
-              <MemoizedHighlightedText text={serial} highlight={globalFilter} />
-            ) : (
-              <CopyableText text={serial} fieldName="Serial Number" className="font-mono text-xs" />
-            )}
-          </div>
-        );
-      },
-      enableSorting: true,
-    },
+    // 3. Compliance Status
     {
       id: 'customStatus',
       header: ({ column }) => (
         <AnimatedColumnHeader column={column}>
-          Status
+          Compliance Status
         </AnimatedColumnHeader>
       ),
       cell: ({ row }) => {
-        const validTo = row.original.validTo as string;
-        const status = getCertificateCustomStatus(validTo);
+        const expDate = row.original.expDate as string;
+        const status = getServiceIdCustomStatus(expDate);
         return (
           <div className="flex items-center gap-2">
             <MotionBadge 
@@ -1080,54 +1013,19 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
               {status}
             </MotionBadge>
           </div>
-        )
+        );
       },
       accessorFn: (row) => {
         // Create accessor function to make sorting work properly
-        const validTo = row.validTo;
-        const status = getCertificateCustomStatus(validTo);
-        // Define the order: Valid (0), Expiring Soon (1), Expired (2)
-        const statusOrder = { 'Valid': 0, 'Expiring Soon': 1, 'Expired': 2 };
+        const expDate = row.expDate;
+        const status = getServiceIdCustomStatus(expDate);
+        // Define the order: Valid (0), Expiring Soon (1), Non-Compliant (2)
+        const statusOrder = { 'Valid': 0, 'Expiring Soon': 1, 'Non-Compliant': 2 };
         return statusOrder[status];
       },
       enableSorting: true,
     },
-    {
-      accessorKey: 'validFrom',
-      header: ({ column }) => (
-        <AnimatedColumnHeader column={column}>
-          Valid From
-        </AnimatedColumnHeader>
-      ),
-      cell: ({ row }) => {
-        const validFrom = row.getValue('validFrom') as string;
-        return <MotionDateDisplay shortDate={formatDate(validFrom)} longDate={formatDateLong(validFrom)} />;
-      },
-      enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const dateA = new Date(rowA.getValue('validFrom'));
-        const dateB = new Date(rowB.getValue('validFrom'));
-        return dateA.getTime() - dateB.getTime();
-      },
-    },
-    {
-      accessorKey: 'validTo',
-      header: ({ column }) => (
-        <AnimatedColumnHeader column={column}>
-          Valid To
-        </AnimatedColumnHeader>
-      ),
-      cell: ({ row }) => {
-        const validTo = row.getValue('validTo') as string;
-        return <MotionDateDisplay shortDate={formatDate(validTo)} longDate={formatDateLong(validTo)} />;
-      },
-      enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const dateA = new Date(rowA.getValue('validTo'));
-        const dateB = new Date(rowB.getValue('validTo'));
-        return dateA.getTime() - dateB.getTime();
-      },
-    },
+    // 4. Days Left
     {
       id: 'daysLeft',
       header: ({ column }) => (
@@ -1136,115 +1034,121 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
         </AnimatedColumnHeader>
       ),
       cell: ({ row }) => {
-        const validTo = row.getValue('validTo') as string;
-        const daysUntil = getDaysUntilExpiration(validTo);
+        const expDate = row.getValue('expDate') as string;
+        const daysUntil = getDaysUntilExpiration(expDate);
         return <MotionDaysLeft days={daysUntil} />;
       },
       accessorFn: (row) => {
         // Create accessor function to make sorting work properly
-        const validTo = row.validTo;
-        if (!validTo) return Infinity;
+        const expDate = row.expDate;
+        if (!expDate) return Infinity;
         
-        const validToDate = new Date(validTo);
+        const expDateDate = new Date(expDate);
         const today = new Date();
         
         // Clear time part for accurate day calculation
-        validToDate.setHours(0, 0, 0, 0);
+        expDateDate.setHours(0, 0, 0, 0);
         today.setHours(0, 0, 0, 0);
         
-        const diffTime = validToDate.getTime() - today.getTime();
+        const diffTime = expDateDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         return diffDays > 0 ? diffDays : 0;
       },
       enableSorting: true,
     },
+    // 5. Last Reset
     {
-      accessorKey: 'applicationName',
+      accessorKey: 'lastReset',
+      header: ({ column }) => (
+        <AnimatedColumnHeader column={column}>
+          Last Reset
+        </AnimatedColumnHeader>
+      ),
+      cell: ({ row }) => {
+        const lastReset = row.getValue('lastReset') as string;
+        return <MotionDateDisplay shortDate={formatDate(lastReset)} longDate={formatDateLong(lastReset)} />;
+      },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const dateA = new Date(rowA.getValue('lastReset'));
+        const dateB = new Date(rowB.getValue('lastReset'));
+        return dateA.getTime() - dateB.getTime();
+      },
+    },
+    // 6. Expiration Date
+    {
+      accessorKey: 'expDate',
+      header: ({ column }) => (
+        <AnimatedColumnHeader column={column}>
+          Expiration Date
+        </AnimatedColumnHeader>
+      ),
+      cell: ({ row }) => {
+        const expDate = row.getValue('expDate') as string;
+        return <MotionDateDisplay shortDate={formatDate(expDate)} longDate={formatDateLong(expDate)} />;
+      },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const dateA = new Date(rowA.getValue('expDate'));
+        const dateB = new Date(rowB.getValue('expDate'));
+        return dateA.getTime() - dateB.getTime();
+      },
+    },
+    // 7. Application
+    {
+      accessorKey: 'application',
       header: ({ column }) => (
         <AnimatedColumnHeader column={column}>
           Application
         </AnimatedColumnHeader>
       ),
       cell: ({ row }) => {
-        const app = row.getValue('applicationName') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={app} highlight={globalFilter} /> : app}</div>
+        const app = row.getValue('application') as string;
+        return <div>{globalFilter ? <MemoizedHighlightedText text={app} highlight={globalFilter} /> : app}</div>;
       },
       enableSorting: true,
     },
+    // 8. Environment
     {
-      accessorKey: 'zeroTouch',
+      accessorKey: 'env',
+      header: ({ column }) => (
+        <AnimatedColumnHeader column={column}>
+          Environment
+        </AnimatedColumnHeader>
+      ),
+      cell: ({ row }) => {
+        const env = row.getValue('env') as string;
+        return (
+          <MotionBadge 
+            variant="outline" 
+            className="bg-blue-50 text-blue-700 hover:bg-blue-100/80"
+            initial="initial"
+            animate="animate"
+            whileHover="hover"
+            variants={statusBadgeVariants}
+          >
+            {globalFilter ? <MemoizedHighlightedText text={env} highlight={globalFilter} /> : env}
+          </MotionBadge>
+        );
+      },
+      enableSorting: true,
+    },
+    // 9. Status
+    {
+      accessorKey: 'status',
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="px-0 hover:bg-transparent"
         >
-          Zero Touch
+          Status
           <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const zeroTouch = row.getValue('zeroTouch') as string
-        return <div>{zeroTouch === 'true' ? 'Yes' : 'No'}</div>
-      },
-      enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const valueA = rowA.getValue('zeroTouch') === 'true' ? 1 : 0;
-        const valueB = rowB.getValue('zeroTouch') === 'true' ? 1 : 0;
-        return valueA - valueB;
-      },
-    },
-    {
-      accessorKey: 'hostingTeamName',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Hosting Team
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const team = row.getValue('hostingTeamName') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={team} highlight={globalFilter} /> : team}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'certificatePurpose',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Purpose
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const purpose = row.getValue('certificatePurpose') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={purpose} highlight={globalFilter} /> : purpose}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'certificateStatus',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Certificate Status
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const status = row.original.certificateStatus as string;
+        const status = row.original.status as string;
         return (
           <div className="flex items-center gap-2">
             <MotionBadge 
@@ -1261,207 +1165,30 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
               {status}
             </MotionBadge>
           </div>
-        )
-      },
-      accessorFn: (row) => {
-        // Create accessor function to make sorting work properly
-        const status = row.certificateStatus as 'Issued' | 'Pending' | 'Expiring Soon' | 'Expired' | 'Revoked' | string;
-        // Define the order: Issued (0), Pending (1), Expiring Soon (2), Expired (3), Revoked (4)
-        const statusOrder: Record<string, number> = { 
-          'Issued': 0, 
-          'Pending': 1, 
-          'Expiring Soon': 2,
-          'Expired': 3,
-          'Revoked': 4
-        };
-        return statusOrder[status] !== undefined ? statusOrder[status] : 999; // Handle unknown statuses
+        );
       },
       enableSorting: true,
     },
+    // 10. Renewal Process
     {
-      accessorKey: 'comment',
+      accessorKey: 'renewalProcess',
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="px-0 hover:bg-transparent"
         >
-          Comment
+          Renewal Process
           <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
-        const comment = row.getValue('comment') as string;
-        return <ExpandableComment comment={comment} globalFilter={globalFilter} />;
+        const process = row.getValue('renewalProcess') as string;
+        return <div>{globalFilter ? <MemoizedHighlightedText text={process} highlight={globalFilter} /> : process}</div>;
       },
       enableSorting: true,
     },
-    {
-      accessorKey: 'certificateIdentifier',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Certificate Identifier
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const id = row.getValue('certificateIdentifier') as string
-        return <div className="font-mono text-xs truncate max-w-[180px]">
-          {globalFilter ? <MemoizedHighlightedText text={id} highlight={globalFilter} /> : id}
-        </div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'currentCert',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Current Cert
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const current = row.getValue('currentCert') as string
-        return <div>{current === 'true' ? 'Yes' : 'No'}</div>
-      },
-      enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const valueA = rowA.getValue('currentCert') === 'true' ? 1 : 0;
-        const valueB = rowB.getValue('currentCert') === 'true' ? 1 : 0;
-        return valueA - valueB;
-      },
-    },
-    {
-      accessorKey: 'environment',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Environment
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const env = row.getValue('environment') as string
-        return (
-          <MotionBadge 
-            variant="outline" 
-            className="bg-blue-50 text-blue-700 hover:bg-blue-100/80"
-            initial="initial"
-            animate="animate"
-            whileHover="hover"
-            variants={statusBadgeVariants}
-          >
-            {globalFilter ? <MemoizedHighlightedText text={env} highlight={globalFilter} /> : env}
-          </MotionBadge>
-        )
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'subjectAlternateNames',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Subject Alternate Names
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const sans = row.getValue('subjectAlternateNames') as string
-        return <div className="truncate max-w-[180px]">
-          {globalFilter ? <MemoizedHighlightedText text={sans} highlight={globalFilter} /> : sans}
-        </div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'issuerCertAuthName',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Issuer
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const issuer = row.getValue('issuerCertAuthName') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={issuer} highlight={globalFilter} /> : issuer}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'idaasIntegrationId',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          IDaaS Integration ID
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const id = row.getValue('idaasIntegrationId') as string
-        return <div className="font-mono text-xs truncate max-w-[180px]">
-          {globalFilter ? <MemoizedHighlightedText text={id} highlight={globalFilter} /> : id}
-        </div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'isAmexCert',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Is Amex Cert
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const isAmex = row.getValue('isAmexCert') as string
-        return <div>{isAmex}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'certType',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Certificate Type
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const certType = row.getValue('certType') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={certType} highlight={globalFilter} /> : certType}</div>
-      },
-      enableSorting: true,
-    },
+    // 11. Acknowledged By
     {
       accessorKey: 'acknowledgedBy',
       header: ({ column }) => (
@@ -1480,86 +1207,9 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
       },
       enableSorting: true,
     },
+    // 12. App Custodian
     {
-      accessorKey: 'centralID',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Central ID
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const id = row.getValue('centralID') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={id} highlight={globalFilter} /> : id}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'lastNotification',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Last Notification
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const notification = row.getValue('lastNotification') as number
-        return <div>{notification || '-'}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'lastNotificationOn',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Last Notification On
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const date = row.getValue('lastNotificationOn') as string
-        const formattedDate = date ? formatDate(date) : '-'
-        return <div>{globalFilter && date ? <MemoizedHighlightedText text={formattedDate} highlight={globalFilter} /> : formattedDate}</div>
-      },
-      enableSorting: true,
-      sortingFn: (rowA, rowB) => {
-        const dateA = rowA.getValue('lastNotificationOn') ? new Date(rowA.getValue('lastNotificationOn')) : new Date(0);
-        const dateB = rowB.getValue('lastNotificationOn') ? new Date(rowB.getValue('lastNotificationOn')) : new Date(0);
-        return dateA.getTime() - dateB.getTime();
-      },
-    },
-    {
-      accessorKey: 'renewingTeamName',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Renewing Team
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const team = row.getValue('renewingTeamName') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={team} highlight={globalFilter} /> : team}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'changeNumber',
+      accessorKey: 'appCustodian',
       header: ({ column }) => (
         <Button
           variant="ghost"
@@ -1573,76 +1223,6 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
       cell: ({ row }) => {
         const changeNumber = row.getValue('changeNumber') as string
         return <div>{globalFilter ? <MemoizedHighlightedText text={changeNumber} highlight={globalFilter} /> : changeNumber}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'serverName',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Server
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const server = row.getValue('serverName') as string
-        return <div>{globalFilter ? <MemoizedHighlightedText text={server} highlight={globalFilter} /> : server}</div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'keystorePath',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          Keystore Path
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const path = row.getValue('keystorePath') as string
-        return <div className="font-mono text-xs">
-          {globalFilter ? <MemoizedHighlightedText text={path} highlight={globalFilter} /> : path}
-        </div>
-      },
-      enableSorting: true,
-    },
-    {
-      accessorKey: 'uri',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="px-0 hover:bg-transparent"
-        >
-          URI
-          <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const uri = row.getValue('uri') as string
-        if (!uri) return null
-        
-        const displayUri = uri.replace(/^https?:\/\//, '').substring(0, 25) + 
-          (uri.replace(/^https?:\/\//, '').length > 25 ? '...' : '')
-        
-        return (
-          <a 
-            href={uri} 
-            target="_blank" 
-            rel="noreferrer" 
-            className="text-blue-600 hover:underline hover:text-blue-800"
-          >
-            {globalFilter ? <MemoizedHighlightedText text={displayUri} highlight={globalFilter} /> : displayUri}
-          </a>
-        )
       },
       enableSorting: true,
     },
@@ -1671,7 +1251,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
       ),
       enableSorting: false,
     },
-  ], [globalFilter]) // Only recalculate when globalFilter changes
+  ], [globalFilter])
 
   // Setup the table
   const table = useReactTable({
@@ -1714,9 +1294,9 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
   // Define handlers that need access to the table object
   // Clear all filters
   const clearFilters = () => {
-    setExpirationFilter([])
-    setStatusFilter([])
-    setGlobalFilter("")
+    setStatusFilter([]);
+    setExpirationFilter([]);
+    setGlobalFilter('');
     // Reset table filters
     table.resetColumnFilters()
     table.resetGlobalFilter()
@@ -1810,7 +1390,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                 {row.getVisibleCells().map((cell) => {
                   if (!cell) return null;
                   
-                  const isFixed = cell.column.id === 'select' || cell.column.id === 'commonName' || cell.column.id === 'actions';
+                  const isFixed = cell.column.id === 'select' || cell.column.id === 'svcid' || cell.column.id === 'actions';
                   return (
                     <TableCell
                       key={cell.id}
@@ -1818,14 +1398,14 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                         "p-4 align-middle [&:has([role=checkbox])]:pr-0",
                         isFixed && "sticky bg-background",
                         cell.column.id === 'select' && "left-0 w-[28px] z-30",
-                        cell.column.id === 'commonName' && "left-[28px] z-20 border-l shadow-[-1px_0_0_0_#e5e7eb] py-3",
+                        cell.column.id === 'svcid' && "left-[28px] z-20 border-l shadow-[-1px_0_0_0_#e5e7eb] py-3",
                         cell.column.id === 'actions' && "right-0 z-20",
                         cell.column.id === 'comment' && "max-w-[400px]"
                       )}
                       style={{
                         minWidth: cell.column.id === 'select' ? '28px' : undefined,
                         width: cell.column.id === 'select' ? '28px' : undefined,
-                        maxWidth: cell.column.id === 'commonName' ? '300px' : undefined
+                        maxWidth: cell.column.id === 'svcid' ? '300px' : undefined
                       }}
                     >
                       {flexRender(
@@ -1924,17 +1504,17 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-xl font-semibold">Certificate Management</CardTitle>
+            <CardTitle className="text-xl font-semibold">Service ID Management</CardTitle>
             <CardDescription className="text-muted-foreground">
               {teamName ? (
-                <>Managing certificates for <motion.span 
+                <>Managing service IDs for <motion.span 
                   className="font-medium text-primary"
                   initial={{ opacity: 0.7 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3 }}
                 >{teamName}</motion.span> team</>
               ) : (
-                <>View and manage all certificates in the system</>
+                <>View and manage all service IDs in the system</>
               )}
             </CardDescription>
           </div>
@@ -1945,7 +1525,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
             >
-              Add Certificate
+              Add Service ID
             </MotionButton>
           </div>
         </div>
@@ -2079,8 +1659,8 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                   <DropdownMenuCheckboxItem
                     key={status}
                     checked={statusFilter.includes(status)}
-                    onCheckedChange={(value) => {
-                      handleStatusFilterChange(status, !!value)
+                    onCheckedChange={(checked) => {
+                      handleStatusFilterChange(status, !!checked)
                     }}
                   >
                     <div className="flex items-center gap-2">
@@ -2118,10 +1698,13 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                   Columns <ChevronDown className="ml-1 h-3 w-3" />
                 </MotionButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent 
+              <MotionDropdownMenuContent 
                 align="end" 
                 className="w-[280px]" 
                 onCloseAutoFocus={(e) => e.preventDefault()}
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15 }}
               >
                 <div className="flex flex-col gap-4 p-4">
                   <div className="space-y-4">
@@ -2206,7 +1789,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                     </div>
                   </div>
                 </div>
-              </DropdownMenuContent>
+              </MotionDropdownMenuContent>
             </DropdownMenu>
 
             {/* Clear filters button */}
@@ -2231,7 +1814,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
             </AnimatePresence>
           </div>
         </div>
-       
+        
       </CardHeader>
       <MotionCardContent className="p-0">
         <div className="relative rounded-md border">
@@ -2246,7 +1829,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                   {table.getHeaderGroups().map((headerGroup) => (
                     <React.Fragment key={headerGroup.id}>
                       {headerGroup.headers.map((header) => {
-                        const isFixed = header.column.id === 'select' || header.column.id === 'commonName' || header.column.id === 'actions';
+                        const isFixed = header.column.id === 'select' || header.column.id === 'svcid' || header.column.id === 'actions';
                         
                         return (
                           <TableHead
@@ -2255,7 +1838,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                               "h-11 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
                               isFixed && "sticky bg-background",
                               header.column.id === 'select' && "left-0 w-[28px] z-30",
-                              header.column.id === 'commonName' && "left-[28px] z-20 border-l shadow-[-1px_0_0_0_#e5e7eb]",
+                              header.column.id === 'svcid' && "left-[28px] z-20 border-l shadow-[-1px_0_0_0_#e5e7eb]",
                               header.column.id === 'actions' && "right-0 z-20",
                               header.column.id === 'comment' && "max-w-[400px]"
                             )}
@@ -2300,7 +1883,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                             exit={{ opacity: 0, height: 0 }}
                           >
                             {row.getVisibleCells().map((cell) => {
-                              const isFixed = cell.column.id === 'select' || cell.column.id === 'commonName' || cell.column.id === 'actions';
+                              const isFixed = cell.column.id === 'select' || cell.column.id === 'svcid' || cell.column.id === 'actions';
                               return (
                                 <TableCell
                                   key={cell.id}
@@ -2308,14 +1891,14 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                                     "p-4 align-middle [&:has([role=checkbox])]:pr-0",
                                     isFixed && "sticky bg-background",
                                     cell.column.id === 'select' && "left-0 w-[28px] z-30",
-                                    cell.column.id === 'commonName' && "left-[28px] z-20 border-l shadow-[-1px_0_0_0_#e5e7eb] py-3",
+                                    cell.column.id === 'svcid' && "left-[28px] z-20 border-l shadow-[-1px_0_0_0_#e5e7eb] py-3",
                                     cell.column.id === 'actions' && "right-0 z-20",
                                     cell.column.id === 'comment' && "max-w-[400px]"
                                   )}
                                   style={{
                                     minWidth: cell.column.id === 'select' ? '28px' : undefined,
                                     width: cell.column.id === 'select' ? '28px' : undefined,
-                                    maxWidth: cell.column.id === 'commonName' ? '300px' : undefined
+                                    maxWidth: cell.column.id === 'svcid' ? '300px' : undefined
                                   }}
                                 >
                                   {flexRender(
@@ -2488,5 +2071,6 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
     </MotionCard>
   )
 }
+
 // Export memoized component to prevent unnecessary re-renders from parent components
-export default React.memo(CertificatesTable); 
+export default React.memo(ServiceIdsTable); 

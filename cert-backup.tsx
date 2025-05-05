@@ -2026,9 +2026,12 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                   <ChevronDown className="ml-1 h-3 w-3" />
                 </MotionButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent 
+              <MotionDropdownMenuContent 
                 align="end" 
                 className="w-[200px]"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15 }}
               >
                 {availableExpirations.map(({ value, label }) => (
                   <DropdownMenuCheckboxItem
@@ -2054,7 +2057,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                     </DropdownMenuItem>
                   </>
                 )}
-              </DropdownMenuContent>
+              </MotionDropdownMenuContent>
             </DropdownMenu>
 
             {/* Status filter dropdown */}
@@ -2071,9 +2074,12 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                   <ChevronDown className="ml-1 h-3 w-3" />
                 </MotionButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent 
+              <MotionDropdownMenuContent 
                 align="end" 
                 className="w-[200px]"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15 }}
               >
                 {availableCustomStatuses.map(status => (
                   <DropdownMenuCheckboxItem
@@ -2102,7 +2108,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                     </DropdownMenuItem>
                   </>
                 )}
-              </DropdownMenuContent>
+              </MotionDropdownMenuContent>
             </DropdownMenu>
 
             {/* Columns visibility dropdown */}
@@ -2118,10 +2124,13 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                   Columns <ChevronDown className="ml-1 h-3 w-3" />
                 </MotionButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent 
+              <MotionDropdownMenuContent 
                 align="end" 
                 className="w-[280px]" 
                 onCloseAutoFocus={(e) => e.preventDefault()}
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15 }}
               >
                 <div className="flex flex-col gap-4 p-4">
                   <div className="space-y-4">
@@ -2206,7 +2215,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                     </div>
                   </div>
                 </div>
-              </DropdownMenuContent>
+              </MotionDropdownMenuContent>
             </DropdownMenu>
 
             {/* Clear filters button */}
@@ -2231,7 +2240,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
             </AnimatePresence>
           </div>
         </div>
-       
+        <Separator className="my-4" />
       </CardHeader>
       <MotionCardContent className="p-0">
         <div className="relative rounded-md border">
