@@ -15,7 +15,20 @@ export function useTeams() {
     queryFn: async () => {
       const res = await fetch(TEAMS_API)
       if (!res.ok) throw new Error('Failed to fetch teams')
-      return res.json() as Promise<string[]>
+      const text = await res.text()
+      let teams: string[] = []
+      try {
+        // Try to parse as JSON array
+        teams = JSON.parse(text)
+      } catch {
+        // Fallback: parse as [CASM, enterprise-security, enterprise-sec]
+        teams = text
+          .replace(/\[|\]/g, '')
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean)
+      }
+      return teams
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 3
