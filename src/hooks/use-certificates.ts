@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { CERT_API } from '@/lib/api-endpoints'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import * as React from 'react'
 
@@ -35,9 +36,6 @@ export interface Certificate {
 }
 
 export type CertificateCustomStatus = 'Valid' | 'Expiring Soon' | 'Expired';
-
-// API endpoint
-const CERT_API = 'https://mocki.io/v1/628243bc-9d5f-4708-b4e5-9fd53c486bae'
 
 // Helper functions
 export function formatDate(dateString: string): string {

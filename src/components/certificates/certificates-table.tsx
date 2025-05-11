@@ -67,6 +67,8 @@ import {
 } from '@/hooks/use-certificates'
 import { useTeamStore } from '@/store/team-store'
 import { cn } from '@/lib/utils'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
+import { CertificateAddDrawerForm } from './CertificateAddDrawerForm'
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -1939,14 +1941,24 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
             </CardDescription>
           </div>
           <div className="flex space-x-2">
-            <MotionButton 
-              variant="default" 
-              size="sm"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              Add Certificate
-            </MotionButton>
+            <Drawer direction="right">
+              <DrawerTrigger asChild>
+                <MotionButton 
+                  variant="default" 
+                  size="sm"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Add Certificate
+                </MotionButton>
+              </DrawerTrigger>
+              <DrawerContent className="w-[80vw] max-w-4xl ml-auto">
+                <DrawerHeader>
+                  <DrawerTitle>Add Certificate</DrawerTitle>
+                </DrawerHeader>
+                <CertificateAddDrawerForm onSuccess={() => { /* Optionally refresh table here */ }} />
+              </DrawerContent>
+            </Drawer>
           </div>
         </div>
         

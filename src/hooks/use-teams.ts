@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchTeamsApi } from '@/lib/mock-api'
+import { TEAMS_API } from '@/lib/api-endpoints'
 import { useTeamStore } from '@/store/team-store'
 import { useEffect } from 'react'
 
@@ -12,7 +12,11 @@ export function useTeams() {
   // Fetch teams using TanStack Query
   const query = useQuery({
     queryKey: ['teams'],
-    queryFn: fetchTeamsApi,
+    queryFn: async () => {
+      const res = await fetch(TEAMS_API)
+      if (!res.ok) throw new Error('Failed to fetch teams')
+      return res.json() as Promise<string[]>
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 3
   })

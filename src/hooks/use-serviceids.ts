@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { SERVICEID_API } from '@/lib/api-endpoints'
 import { CheckCircle, XCircle, Clock, RefreshCcw } from 'lucide-react'
 import * as React from 'react'
 
@@ -25,9 +26,6 @@ export interface ServiceId {
 }
 
 export type ServiceIdCustomStatus = 'Valid' | 'Expiring Soon' | 'Non-Compliant';
-
-// API endpoint
-const SERVICEID_API = 'https://mocki.io/v1/3fe73122-007d-4c9b-9b4d-aee79deb1f80'
 
 // Helper functions
 export function formatDate(dateString: string): string {
