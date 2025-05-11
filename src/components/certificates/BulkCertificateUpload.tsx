@@ -12,6 +12,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import {
+  Stepper,
+  StepperDescription,
+  StepperIndicator,
+  StepperItem,
+  StepperSeparator,
+  StepperTitle,
+  StepperTrigger,
+} from "@/components/ui/stepper"
 
 const AMEX_FIELDS = [
   'commonName',
@@ -45,6 +54,29 @@ type UploadStatus = {
   message?: string
 }
 
+const UPLOAD_STEPS = [
+  {
+    step: 1,
+    title: "Select File",
+    description: "Upload your CSV file",
+  },
+  {
+    step: 2,
+    title: "Validation",
+    description: "Review validation results",
+  },
+  {
+    step: 3,
+    title: "Processing",
+    description: "Upload certificates",
+  },
+  {
+    step: 4,
+    title: "Complete",
+    description: "View upload status",
+  },
+] as const
+
 function downloadCsvTemplate(fields: string[], filename: string) {
   const csv = fields.join(',') + '\n'
   const blob = new Blob([csv], { type: 'text/csv' })
@@ -75,6 +107,7 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
   const [appError, setAppError] = React.useState<string | null>(null)
   const queryClient = useQueryClient()
   const { selectedTeam } = useTeamStore()
+  const [currentStep, setCurrentStep] = React.useState(1)
 
   // Fetch applications when selectedTeam changes
   React.useEffect(() => {
@@ -357,15 +390,54 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
     return errors
   }
 
+  // Update step based on component state
+  React.useEffect(() => {
+    if (uploading) {
+      setCurrentStep(3)
+    } else if (showSummary) {
+      setCurrentStep(4)
+    } else if (validationResults) {
+      setCurrentStep(2)
+    } else {
+      setCurrentStep(1)
+    }
+  }, [uploading, showSummary, validationResults])
+
   return (
     <div className="w-full my-8 px-4">
+      <div className="max-w-4xl mx-auto mb-8">
+        <Stepper value={currentStep} className="w-full">
+          {UPLOAD_STEPS.map(({ step, title, description }) => (
+            <StepperItem
+              key={step}
+              step={step}
+              className="relative flex-1 flex-col!"
+            >
+              <StepperTrigger className="flex-col gap-3 rounded">
+                <StepperIndicator />
+                <div className="space-y-0.5 px-2">
+                  <StepperTitle>{title}</StepperTitle>
+                  <StepperDescription className="max-sm:hidden">
+                    {description}
+                  </StepperDescription>
+                </div>
+              </StepperTrigger>
+              {step < UPLOAD_STEPS.length && (
+                <StepperSeparator className="absolute inset-x-0 top-3 left-[calc(50%+0.75rem+0.125rem)] -order-1 m-0 -translate-y-1/2 group-data-[orientation=horizontal]/stepper:w-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=horizontal]/stepper:flex-none" />
+              )}
+            </StepperItem>
+          ))}
+        </Stepper>
+      </div>
+
       <AnimatePresence mode="wait">
-        {!uploading && (
+        {!uploading && !showSummary && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            className="max-w-4xl mx-auto"
           >
             <div className="mb-6">
               <h2 className="text-2xl font-semibold mb-2">Bulk Certificate Upload</h2>
