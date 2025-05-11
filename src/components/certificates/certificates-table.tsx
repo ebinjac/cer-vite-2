@@ -70,6 +70,7 @@ import { cn } from '@/lib/utils'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { CertificateAddDrawerForm } from './CertificateAddDrawerForm'
 import { useQueryClient } from '@tanstack/react-query'
+import { BulkCertificateUpload } from './BulkCertificateUpload'
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -859,6 +860,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
   const [tempColumnVisibility, setTempColumnVisibility] = React.useState<ColumnVisibilityState>(columnVisibility)
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const [bulkDrawerOpen, setBulkDrawerOpen] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -1964,6 +1966,27 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
                   <DrawerTitle>Add Certificate</DrawerTitle>
                 </DrawerHeader>
                 <CertificateAddDrawerForm onSuccess={handleDrawerClose} onCertificateAdded={onCertificateAdded} />
+              </DrawerContent>
+            </Drawer>
+            <Drawer direction="right" open={bulkDrawerOpen} onOpenChange={setBulkDrawerOpen}>
+              <DrawerTrigger asChild>
+                <MotionButton 
+                  variant="outline" 
+                  size="sm"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Bulk Upload
+                </MotionButton>
+              </DrawerTrigger>
+              <DrawerContent className="min-w-[90vw] max-w-[90vw] ml-auto">
+                <DrawerHeader>
+                  <DrawerTitle>Bulk Certificate Upload</DrawerTitle>
+                </DrawerHeader>
+                <BulkCertificateUpload onUploadSuccess={() => {
+                  setBulkDrawerOpen(false)
+                  if (onCertificateAdded) onCertificateAdded()
+                }} />
               </DrawerContent>
             </Drawer>
           </div>
