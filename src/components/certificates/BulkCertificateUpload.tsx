@@ -137,7 +137,6 @@ export function BulkCertificateUpload ({ onUploadSuccess }: { onUploadSuccess?: 
         setValidationResults({ valid, invalid, errors })
         if (invalid === 0 && valid > 0) {
           toast.success('CSV validated successfully!')
-          if (onUploadSuccess) onUploadSuccess()
         } else if (invalid > 0) {
           toast.error('Some rows have errors. Please fix and re-upload.')
         }
@@ -221,7 +220,9 @@ export function BulkCertificateUpload ({ onUploadSuccess }: { onUploadSuccess?: 
     setUploading(false)
     setShowSummary(true)
     queryClient.invalidateQueries({ queryKey: ['certificates'] })
-    if (onUploadSuccess) onUploadSuccess()
+    if (onUploadSuccess && statusArr.every(s => s.status === 'success')) {
+      onUploadSuccess()
+    }
   }
 
   return (
