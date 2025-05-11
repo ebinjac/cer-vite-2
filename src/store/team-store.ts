@@ -11,14 +11,8 @@ export type TeamState = {
 export const useTeamStore = create<TeamState>()(
   persist(
     (set) => ({
-      selectedTeam: 'CloudSecurity', // Default team
-      availableTeams: [
-        'CloudSecurity',
-        'Data-Certs',
-        'Mobile-Team',
-        'Zmainframe-Certs',
-        'Fin-Certs'
-      ],
+      selectedTeam: '', // No default team
+      availableTeams: [], // No hardcoded teams
       setSelectedTeam: (team) => set({ selectedTeam: team }),
       setAvailableTeams: (teams) => set({ availableTeams: teams }),
     }),
