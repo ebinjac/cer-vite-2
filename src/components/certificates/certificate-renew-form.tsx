@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ChevronDown, ChevronRight } from 'lucide-react'
 
 // Define form value types
 interface RenewalFormValues {
@@ -106,6 +108,7 @@ export function CertificateRenewForm({
   const [hasSearched, setHasSearched] = React.useState(false)
   const [manualSerialEntry, setManualSerialEntry] = React.useState(false)
   const [selectedCert, setSelectedCert] = React.useState<CertSearchResult | null>(null)
+  const [showMoreOptions, setShowMoreOptions] = React.useState(false)
   
   // Set default expiry date to 1 year from now
   const defaultExpiryDate = React.useMemo(() => {
@@ -259,11 +262,6 @@ export function CertificateRenewForm({
       isValid = false;
     }
     
-    // Check for required change number in planning mode
-    if (withPlanning && !values.changeNumber) {
-      isValid = false;
-    }
-    
     return isValid;
   };
   
@@ -286,10 +284,8 @@ export function CertificateRenewForm({
       
       // Prepare payload with all required fields for the renewal API
       const payload = {
-        certificateIdentifier: certificate.certificateIdentifier,
         serialNumber: values.serialNumber,
-        changeNumber: withPlanning ? values.changeNumber : '',
-        withPlanning,
+        changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
         oldSerialNumber: certificate.serialNumber,
         expiryDate: isNonAmexCert && values.expiryDate 
@@ -411,12 +407,10 @@ export function CertificateRenewForm({
         variants={fadeIn}
       >
         <h3 className="text-base font-medium mb-2">
-          {withPlanning ? 'Renew with Planning' : 'Renew without Planning'}
+          Certificate Renewal
         </h3>
         <p className="text-muted-foreground text-sm mb-4">
-          {withPlanning 
-            ? 'Renew the certificate with a planned change number' 
-            : 'Quickly renew the certificate without a change number'}
+          Renew the certificate by providing a new serial number
         </p>
 
         <MotionAlert 
@@ -829,41 +823,65 @@ export function CertificateRenewForm({
           </div>
         )}
         
-        {withPlanning && (
-          <motion.div variants={itemVariants}>
-            <label className="block text-sm font-medium mb-1">
-              Change Number <span className="text-red-500">*</span>
-            </label>
-            <Input 
-              {...register('changeNumber', { 
-                required: withPlanning ? 'Change Number is required' : false,
-                onChange: handleFieldChange
-              })} 
-              placeholder="Enter change number" 
-            />
-            {errors.changeNumber && (
-              <motion.p 
-                className="text-xs text-red-500 mt-1"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                {errors.changeNumber.message}
-              </motion.p>
-            )}
-          </motion.div>
-        )}
-        
-        <motion.div variants={itemVariants}>
-          <label className="block text-sm font-medium mb-1">
-            Comment
-          </label>
-          <Input 
-            {...register('comment', { 
-              onChange: handleFieldChange
-            })} 
-            placeholder="Enter comment about this renewal" 
-          />
-        </motion.div>
+        <Collapsible 
+          open={showMoreOptions}
+          onOpenChange={setShowMoreOptions}
+          className="mt-4 space-y-4 border rounded-md p-4 pt-2"
+        >
+          <div className="flex items-center">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="p-0 h-7 font-medium flex items-center text-primary hover:bg-transparent hover:text-primary hover:underline focus-visible:ring-0 focus-visible:ring-offset-0">
+                {showMoreOptions ? (
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 mr-1" />
+                )}
+                Additional Options
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent className="space-y-4">
+            <motion.div 
+              variants={itemVariants}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ 
+                opacity: showMoreOptions ? 1 : 0,
+                height: showMoreOptions ? 'auto' : 0
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-1">
+                Change Number
+              </label>
+              <Input 
+                {...register('changeNumber', { 
+                  onChange: handleFieldChange
+                })} 
+                placeholder="Enter change number (optional)" 
+              />
+            </motion.div>
+            
+            <motion.div 
+              variants={itemVariants}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ 
+                opacity: showMoreOptions ? 1 : 0,
+                height: showMoreOptions ? 'auto' : 0
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-1">
+                Comment
+              </label>
+              <Input 
+                {...register('comment', { 
+                  onChange: handleFieldChange
+                })} 
+                placeholder="Enter comment about this renewal (optional)" 
+              />
+            </motion.div>
+          </CollapsibleContent>
+        </Collapsible>
       </motion.div>
       
       <motion.div 
@@ -884,10 +902,10 @@ export function CertificateRenewForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {withPlanning ? 'Submitting Renewal...' : 'Renewing Certificate...'}
+                Renewing Certificate...
               </>
             ) : (
-              withPlanning ? 'Submit Renewal Request' : 'Renew Certificate'
+              'Renew Certificate'
             )}
           </Button>
         </motion.div>
