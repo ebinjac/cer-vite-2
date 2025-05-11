@@ -5,7 +5,7 @@ import { Download, UploadCloud, CheckCircle2, XCircle, PaperclipIcon, AlertCircl
 import { useFileUpload, formatBytes } from '@/hooks/use-file-upload'
 import type { FileWithPreview } from '@/hooks/use-file-upload'
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from '@/components/ui/table'
-import { CERTIFICATE_SAVE_API } from '@/lib/api-endpoints'
+import { CERTIFICATE_SAVE_API, APPLICATION_LIST_API } from '@/lib/api-endpoints'
 import { useTeamStore } from '@/store/team-store'
 import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -64,50 +64,47 @@ function parseCsv(text: string) {
   return { headers, rows: rows.filter(row => row.some(cell => cell)) }
 }
 
-function validateRow(row: Record<string, string>, isAmex: boolean): string[] {
-  const errors: string[] = []
-  // Common required fields
-  for (const field of ['commonName', 'serialNumber', 'centralID', 'applicationName']) {
-    if (!row[field]) errors.push(`${field} is required`)
-  }
-  if (isAmex) {
-    // Amex: validTo/environment must be empty
-    if (row.validTo) errors.push('validTo must be empty for Amex cert')
-    if (row.environment) errors.push('environment must be empty for Amex cert')
-  } else {
-    // Non Amex: validTo/environment required
-    if (!row.validTo) {
-      errors.push('validTo is required for Non Amex cert')
-    } else {
-      // Validate validTo format strictly (YYYY-MM-DD)
-      const dateFormatRegex = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/
-      if (!dateFormatRegex.test(row.validTo)) {
-        errors.push('validTo must be in YYYY-MM-DD format (e.g., 2025-05-19)')
-      } else {
-        // Check if it's a valid date (e.g., not 2024-02-31)
-        const date = new Date(row.validTo)
-        if (isNaN(date.getTime())) {
-          errors.push('validTo must be a valid date')
-        }
-      }
-    }
-    if (!row.environment) {
-      errors.push('environment is required for Non Amex cert')
-    } else if (!ENV_OPTIONS.includes(row.environment)) {
-      errors.push('environment must be E1, E2, or E3')
-    }
-  }
-  return errors
-}
-
 export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: () => void }) {
   const [validationResults, setValidationResults] = React.useState<null | { valid: number, invalid: number, errors: string[][] }>(null)
   const [processing, setProcessing] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
   const [showSummary, setShowSummary] = React.useState(false)
   const [uploadStatus, setUploadStatus] = React.useState<UploadStatus[]>([])
+  const [applications, setApplications] = React.useState<string[]>([])
+  const [appLoading, setAppLoading] = React.useState(false)
+  const [appError, setAppError] = React.useState<string | null>(null)
   const queryClient = useQueryClient()
   const { selectedTeam } = useTeamStore()
+
+  // Fetch applications when selectedTeam changes
+  React.useEffect(() => {
+    if (!selectedTeam) return
+    setAppLoading(true)
+    setAppError(null)
+    fetch(APPLICATION_LIST_API(selectedTeam))
+      .then(async res => {
+        if (!res.ok) throw new Error('Failed to fetch applications')
+        const text = await res.text()
+        let apps: string[] = []
+        try {
+          // Try parsing as JSON first
+          apps = JSON.parse(text)
+        } catch {
+          // If not JSON, parse as comma-separated string
+          apps = text
+            .replace(/\[|\]/g, '')
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean)
+        }
+        setApplications(apps)
+        setAppLoading(false)
+      })
+      .catch(err => {
+        setAppError(err.message || 'Failed to fetch applications')
+        setAppLoading(false)
+      })
+  }, [selectedTeam])
 
   const [
     { files, isDragging, errors: fileErrors },
@@ -316,6 +313,50 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
     return Math.round((completed / uploadStatus.length) * 100)
   }, [uploadStatus, uploading])
 
+  function validateRow(row: Record<string, string>, isAmex: boolean): string[] {
+    const errors: string[] = []
+    // Common required fields
+    for (const field of ['commonName', 'serialNumber', 'centralID']) {
+      if (!row[field]) errors.push(`${field} is required`)
+    }
+
+    // Validate applicationName against the fetched list
+    if (!row.applicationName) {
+      errors.push('applicationName is required')
+    } else if (applications.length > 0 && !applications.includes(row.applicationName)) {
+      errors.push(`applicationName must be one of: ${applications.join(', ')}`)
+    }
+
+    if (isAmex) {
+      // Amex: validTo/environment must be empty
+      if (row.validTo) errors.push('validTo must be empty for Amex cert')
+      if (row.environment) errors.push('environment must be empty for Amex cert')
+    } else {
+      // Non Amex: validTo/environment required
+      if (!row.validTo) {
+        errors.push('validTo is required for Non Amex cert')
+      } else {
+        // Validate validTo format strictly (YYYY-MM-DD)
+        const dateFormatRegex = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/
+        if (!dateFormatRegex.test(row.validTo)) {
+          errors.push('validTo must be in YYYY-MM-DD format (e.g., 2025-05-19)')
+        } else {
+          // Check if it's a valid date (e.g., not 2024-02-31)
+          const date = new Date(row.validTo)
+          if (isNaN(date.getTime())) {
+            errors.push('validTo must be a valid date')
+          }
+        }
+      }
+      if (!row.environment) {
+        errors.push('environment is required for Non Amex cert')
+      } else if (!ENV_OPTIONS.includes(row.environment)) {
+        errors.push('environment must be E1, E2, or E3')
+      }
+    }
+    return errors
+  }
+
   return (
     <div className="w-full my-8 px-4">
       <AnimatePresence mode="wait">
@@ -333,10 +374,20 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                   <li>Download the appropriate CSV template for your certificate type.</li>
                   <li>Fill in all required fields. <span className="font-medium">Do not change the header row.</span></li>
                   <li>For <span className="font-semibold">Non Amex</span> certificates, the <span className="font-mono">validTo</span> date must be in exact format <span className="font-mono">YYYY-MM-DD</span> (e.g., <span className="font-mono">2025-05-19</span>).</li>
+                  <li>Application name must match one from your team's application list.</li>
                   <li>Upload the completed CSV file below.</li>
                   <li>All rows will be validated before upload. Errors will be shown inline.</li>
                 </ol>
               </div>
+
+              {appError && (
+                <div className="bg-destructive/10 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-destructive">
+                    Warning: {appError}. Application name validation will be skipped.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col md:flex-row gap-4 items-center">
                 <Button variant="outline" onClick={() => downloadCsvTemplate(AMEX_FIELDS, 'amex-cert-template.csv')} className="flex items-center gap-2">
                   <Download className="h-4 w-4" /> Amex Cert CSV
@@ -398,28 +449,33 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
               </div>
             )}
 
-            {/* Bulk upload button - Moved above validation results */}
-            {validationResults && validationResults.invalid === 0 && validationResults.valid > 0 && (
-              <div className="mb-4">
-                <Button onClick={handleBulkUpload} disabled={uploading || processing} className="w-48">
-                  {uploading ? 'Uploading...' : processing ? 'Processing...' : 'Start Bulk Upload'}
-                </Button>
-              </div>
-            )}
-
-            {/* Validation results */}
-            {validationResults && validationResults.invalid > 0 && (
+            {/* Validation results - show both valid and invalid entries */}
+            {validationResults && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-4"
               >
-                <div className="bg-destructive/10 rounded-lg p-4 mb-4">
-                  <h3 className="font-medium text-destructive mb-1">Validation Errors Found</h3>
-                  <p className="text-sm text-destructive/90">
-                    Please fix the following errors and re-upload the file:
-                  </p>
+                <div className="flex items-center gap-6 mb-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-sm font-medium text-green-700">Valid: {validationResults.valid}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-sm font-medium text-destructive">Invalid: {validationResults.invalid}</span>
+                  </div>
                 </div>
+
+                {validationResults.invalid > 0 && (
+                  <div className="bg-destructive/10 rounded-lg p-4 mb-4">
+                    <h3 className="font-medium text-destructive mb-1">Validation Errors Found</h3>
+                    <p className="text-sm text-destructive/90">
+                      Please fix the following errors and re-upload the file:
+                    </p>
+                  </div>
+                )}
+
                 <div className="border rounded-lg overflow-hidden">
                   <ScrollArea className="h-[400px]">
                     <Table>
@@ -427,29 +483,55 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                         <TableRow>
                           <TableHead className="w-20 px-3 py-2 text-left font-semibold">Row</TableHead>
                           <TableHead className="w-24 px-3 py-2 text-left font-semibold">Status</TableHead>
-                          <TableHead className="px-3 py-2 text-left font-semibold">Errors</TableHead>
+                          <TableHead className="px-3 py-2 text-left font-semibold">Details</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {validationResults.errors.map((errs, i) => errs.length ? (
-                          <TableRow key={i} className="bg-destructive/5">
+                        {validationResults.errors.map((errs, i) => (
+                          <TableRow 
+                            key={i} 
+                            className={cn(
+                              errs.length > 0 ? "bg-destructive/5" : "bg-green-50"
+                            )}
+                          >
                             <TableCell className="px-3 py-2">{i + 2}</TableCell>
                             <TableCell className="px-3 py-2">
                               <div className="flex items-center gap-1.5">
-                                <XCircle className="h-4 w-4 text-destructive" />
-                                <span className="text-destructive">Invalid</span>
+                                {errs.length > 0 ? (
+                                  <>
+                                    <XCircle className="h-4 w-4 text-destructive" />
+                                    <span className="text-destructive">Invalid</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    <span className="text-green-700">Valid</span>
+                                  </>
+                                )}
                               </div>
                             </TableCell>
-                            <TableCell className="px-3 py-2 text-destructive">
-                              {errs.join('; ')}
+                            <TableCell className={cn(
+                              "px-3 py-2",
+                              errs.length > 0 ? "text-destructive" : "text-green-700"
+                            )}>
+                              {errs.length > 0 ? errs.join('; ') : 'All fields valid'}
                             </TableCell>
                           </TableRow>
-                        ) : null)}
+                        ))}
                       </TableBody>
                     </Table>
                   </ScrollArea>
                 </div>
               </motion.div>
+            )}
+
+            {/* Bulk upload button */}
+            {validationResults && validationResults.invalid === 0 && validationResults.valid > 0 && (
+              <div className="mt-4">
+                <Button onClick={handleBulkUpload} disabled={uploading || processing} className="w-48">
+                  {uploading ? 'Uploading...' : processing ? 'Processing...' : 'Start Bulk Upload'}
+                </Button>
+              </div>
             )}
           </motion.div>
         )}
