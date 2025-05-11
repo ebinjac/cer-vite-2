@@ -301,7 +301,18 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
         setUploadStatus([...statusArr])
       })
       .catch(err => {
-        statusArr[index] = { status: 'error', message: err?.message || 'Unknown error' }
+        let errorMessage = ''
+        if (typeof err?.message === 'string') {
+          try {
+            const parsed = JSON.parse(err.message)
+            errorMessage = parsed.message || parsed.error || JSON.stringify(parsed)
+          } catch {
+            errorMessage = err.message
+          }
+        } else {
+          errorMessage = 'Unknown error occurred'
+        }
+        statusArr[index] = { status: 'error', message: errorMessage }
         setUploadStatus([...statusArr])
       })
   }, [uploadCertificate])
@@ -338,28 +349,33 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
     }))
   }, [validationResults, showSummary])
 
+  // Keep track of completed processing
+  const [hasCompletedProcessing, setHasCompletedProcessing] = React.useState(false)
+
   // Update step based on component state
   React.useEffect(() => {
     if (uploading) {
       setCurrentStep(3)
-    } else if (showSummary) {
+    } else if (showSummary && hasCompletedProcessing) {
       setCurrentStep(4)
     } else if (validationResults) {
       setCurrentStep(2)
     } else {
       setCurrentStep(1)
     }
-  }, [uploading, showSummary, validationResults])
+  }, [uploading, showSummary, validationResults, hasCompletedProcessing])
 
-  // Modify handleBulkUpload to properly handle the processing step
+  // Modify handleBulkUpload to track processing completion
   const handleBulkUpload = React.useCallback(() => {
     if (!validationResults || !file?.file || !(file.file instanceof File)) return
     setUploading(true)
     setShowSummary(false)
+    setHasCompletedProcessing(false)
 
     readFileAsText(file.file)
       .then(fileContent => processUpload(fileContent, validationResults))
       .then(statusArr => {
+        setHasCompletedProcessing(true)
         const hasErrors = statusArr.some(s => s.status === 'error')
         setShowSummary(true)
         if (!hasErrors) {
@@ -635,7 +651,7 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
         )}
 
         {/* Step 3: Processing */}
-        {currentStep === 3 && uploading && (
+        {(currentStep === 3 || (hasCompletedProcessing && uploadStatus.length > 0)) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -643,7 +659,9 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
             className="max-w-4xl mx-auto"
           >
             <div className="flex flex-col items-center mb-6">
-              <h2 className="text-2xl font-semibold mb-4">Uploading Certificates</h2>
+              <h2 className="text-2xl font-semibold mb-4">
+                {uploading ? 'Uploading Certificates' : 'Upload Progress'}
+              </h2>
               <div className="w-full mb-2">
                 <Progress value={uploadProgress} className="h-2" />
               </div>
@@ -735,53 +753,91 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto"
           >
-            <div className="rounded-lg bg-muted p-6">
-              <h2 className="text-2xl font-semibold mb-4">Upload Summary</h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    <span className="text-base font-medium text-green-700">
-                      Success: {uploadStatus.filter(s => s.status === 'success').length} / {uploadStatus.length}
-                    </span>
+            <div className="rounded-lg bg-card border p-8">
+              <div className="flex items-center gap-4 mb-6">
+                {uploadStatus.some(s => s.status === 'error') ? (
+                  <div className="bg-destructive/10 rounded-full p-3">
+                    <XCircle className="h-6 w-6 text-destructive" />
                   </div>
-                  {uploadStatus.some(s => s.status === 'error') && (
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-5 w-5 text-destructive" />
-                      <span className="text-base font-medium text-destructive">
-                        Failed: {uploadStatus.filter(s => s.status === 'error').length}
-                      </span>
-                    </div>
-                  )}
+                ) : (
+                  <div className="bg-green-50 rounded-full p-3">
+                    <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-2xl font-semibold">Upload Complete</h2>
+                  <p className="text-muted-foreground">
+                    {uploadStatus.some(s => s.status === 'error')
+                      ? 'Some certificates failed to upload'
+                      : 'All certificates were uploaded successfully'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="rounded-lg bg-green-50 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <h3 className="font-medium">Successful Uploads</h3>
+                  </div>
+                  <p className="text-2xl font-semibold text-green-700">
+                    {uploadStatus.filter(s => s.status === 'success').length}
+                    <span className="text-base text-green-600 font-normal"> of {uploadStatus.length}</span>
+                  </p>
                 </div>
 
                 {uploadStatus.some(s => s.status === 'error') && (
-                  <div className="mt-4">
-                    <h3 className="font-medium mb-2">Failed Uploads</h3>
-                    <div className="space-y-2">
-                      {uploadStatus.map((status, index) => (
-                        status.status === 'error' && (
-                          <div key={index} className="text-sm text-destructive">
-                            Row {index + 2}: {status.message}
-                          </div>
-                        )
-                      ))}
+                  <div className="rounded-lg bg-destructive/10 p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <XCircle className="h-5 w-5 text-destructive" />
+                      <h3 className="font-medium">Failed Uploads</h3>
                     </div>
+                    <p className="text-2xl font-semibold text-destructive">
+                      {uploadStatus.filter(s => s.status === 'error').length}
+                      <span className="text-base text-destructive/80 font-normal"> of {uploadStatus.length}</span>
+                    </p>
                   </div>
                 )}
+              </div>
 
-                <div className="mt-6">
-                  <Button onClick={() => {
-                    setCurrentStep(1)
-                    setValidationResults(null)
-                    setUploading(false)
-                    setShowSummary(false)
-                    setUploadStatus([])
-                    removeFile(file?.id || '')
-                  }}>
-                    Upload Another File
-                  </Button>
+              {uploadStatus.some(s => s.status === 'error') && (
+                <div className="mb-6">
+                  <h3 className="font-medium mb-3">Error Details</h3>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {uploadStatus.map((status, index) => (
+                      status.status === 'error' && (
+                        <div key={index} className="bg-destructive/5 rounded-lg p-3">
+                          <div className="flex items-start gap-2">
+                            <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                            <div>
+                              <p className="font-medium text-sm">Row {index + 2}</p>
+                              <p className="text-sm text-destructive/90">{status.message}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button onClick={() => {
+                  setCurrentStep(1)
+                  setValidationResults(null)
+                  setUploading(false)
+                  setShowSummary(false)
+                  setUploadStatus([])
+                  setHasCompletedProcessing(false)
+                  removeFile(file?.id || '')
+                }}>
+                  Upload Another File
+                </Button>
+                {uploadStatus.some(s => s.status === 'error') && (
+                  <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                    View Upload Details
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>

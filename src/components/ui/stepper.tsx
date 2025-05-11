@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { CheckIcon, Loader2Icon } from "lucide-react"
 
 interface StepperContextValue {
   value: number
@@ -22,7 +23,6 @@ type StepperProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> & {
 const Stepper = React.forwardRef<HTMLDivElement, StepperProps>(
   ({ className, value, defaultValue = 1, onChange, ...props }, ref) => {
     const [stepValue, setStepValue] = React.useState(defaultValue)
-
     const actualValue = value !== undefined ? value : stepValue
 
     const handleValueChange = React.useCallback(
@@ -34,12 +34,7 @@ const Stepper = React.forwardRef<HTMLDivElement, StepperProps>(
     )
 
     return (
-      <StepperContext.Provider
-        value={{
-          value: actualValue,
-          onChange: handleValueChange,
-        }}
-      >
+      <StepperContext.Provider value={{ value: actualValue, onChange: handleValueChange }}>
         <div
           ref={ref}
           className={cn(
@@ -61,11 +56,15 @@ const StepperItem = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & { step: number }
 >(({ className, step, children, ...props }, ref) => {
+  const { value } = React.useContext(StepperContext)
+  const state = step === value ? "active" : step < value ? "completed" : "pending"
+
   return (
     <StepperItemContext.Provider value={step}>
       <div
         ref={ref}
-        className={cn("group/stepper flex items-center gap-2", className)}
+        className={cn("group/stepper relative flex items-center gap-2", className)}
+        data-state={state}
         {...props}
       >
         {children}
@@ -106,18 +105,26 @@ const StepperIndicator = React.forwardRef<
 >(({ className, ...props }, ref) => {
   const { value } = React.useContext(StepperContext)
   const step = React.useContext(StepperItemContext)
+  const state = step === value ? "active" : step < value ? "completed" : "pending"
 
   return (
     <div
       ref={ref}
       className={cn(
-        "relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-medium ring-offset-background transition-colors group-hover/trigger:bg-muted",
-        step <= value && "border-primary bg-primary text-primary-foreground",
+        "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-medium ring-offset-background transition-colors",
+        state === "active" && "border-primary bg-primary text-primary-foreground",
+        state === "completed" && "border-primary bg-primary text-primary-foreground",
         className
       )}
       {...props}
     >
-      {step}
+      {state === "completed" ? (
+        <CheckIcon className="h-4 w-4" />
+      ) : state === "active" ? (
+        <Loader2Icon className="h-4 w-4 animate-spin" />
+      ) : (
+        step
+      )}
     </div>
   )
 })
@@ -162,8 +169,8 @@ const StepperSeparator = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "h-[2px] w-full bg-border",
-        step <= value && "bg-primary",
+        "absolute left-10 right-0 top-4 h-[2px] -translate-y-1/2 bg-border",
+        step < value && "bg-primary",
         className
       )}
       {...props}
