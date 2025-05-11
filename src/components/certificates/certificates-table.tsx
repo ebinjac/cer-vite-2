@@ -856,6 +856,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
   })
   const [tempColumnVisibility, setTempColumnVisibility] = React.useState<ColumnVisibilityState>(columnVisibility)
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -885,7 +886,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
     'zeroTouch', 'idaasIntegrationId', 'isAmexCert', 'acknowledgedBy',
     'centralID', 'comment', 'lastNotification', 'lastNotificationOn',
     'changeNumber', 'keystorePath'
-  ], [])
+  ], []);
   
   // Create all needed hooks at the top level of the component
   const tableContainerRef = React.useRef<HTMLDivElement>(null)
@@ -1941,7 +1942,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
             </CardDescription>
           </div>
           <div className="flex space-x-2">
-            <Drawer direction="right">
+            <Drawer direction="right" open={drawerOpen} onOpenChange={setDrawerOpen}>
               <DrawerTrigger asChild>
                 <MotionButton 
                   variant="default" 
@@ -1956,7 +1957,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                 <DrawerHeader>
                   <DrawerTitle>Add Certificate</DrawerTitle>
                 </DrawerHeader>
-                <CertificateAddDrawerForm onSuccess={() => { /* Optionally refresh table here */ }} />
+                <CertificateAddDrawerForm onSuccess={() => setDrawerOpen(false)} />
               </DrawerContent>
             </Drawer>
           </div>

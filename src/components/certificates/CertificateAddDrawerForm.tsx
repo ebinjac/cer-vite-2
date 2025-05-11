@@ -15,6 +15,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useCertificateAddFormStore } from '@/store/certificate-add-form-store'
 
 const baseSchema = z.object({
   commonName: z.string().min(1, 'Common Name is required'),
@@ -54,6 +55,7 @@ export type CertificateAddFormValues = z.infer<typeof schema>
 export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void }) {
   const [showMore, setShowMore] = React.useState(false)
   const [apiError, setApiError] = React.useState<string | null>(null)
+  const { formValues, setFormValues, resetForm } = useCertificateAddFormStore()
   const {
     register,
     handleSubmit,
@@ -65,6 +67,7 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
     resolver: zodResolver(schema),
     defaultValues: {
       isAmexCert: 'Yes',
+      ...formValues,
     },
   })
 
@@ -74,6 +77,14 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
   const [appLoading, setAppLoading] = React.useState(false)
   const [appError, setAppError] = React.useState<string | null>(null)
   const [appOpen, setAppOpen] = React.useState(false)
+
+  // Persist form values on change
+  React.useEffect(() => {
+    const subscription = watch((values) => {
+      setFormValues(values)
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, setFormValues])
 
   // Clear API error after successful submit
   React.useEffect(() => {
@@ -138,6 +149,8 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
         payload[key] = (values as any)[key] ?? ''
       }
     }
+    // Add renewingTeamName from selectedTeam
+    payload.renewingTeamName = selectedTeam || ''
     // Remove additional fields if showMore is false
     if (!showMore) {
       payload.serverName = ''
@@ -159,6 +172,7 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
       }
       toast.success('Certificate added successfully!', { description: 'The certificate has been saved.' })
       reset()
+      resetForm()
       if (onSuccess) onSuccess()
     } catch (err: any) {
       let message = 'An error occurred while saving the certificate.'
