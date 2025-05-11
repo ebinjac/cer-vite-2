@@ -276,8 +276,9 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
       body: JSON.stringify(payload),
     })
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || 'Failed to upload certificate')
+      // Get the error message as plain text
+      const errorText = await response.text()
+      throw new Error(errorText)
     }
   }, [])
 
@@ -301,9 +302,10 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
         setUploadStatus([...statusArr])
       })
       .catch(err => {
+        // Use the error message directly without any parsing
         statusArr[index] = { 
           status: 'error', 
-          message: err?.message || 'Unknown error occurred'
+          message: err.message || 'Unknown error occurred'
         }
         setUploadStatus([...statusArr])
       })
@@ -724,7 +726,9 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                                  uploadStatus[index]?.status === 'error' ? 'Failed' : 'Pending'}
                               </span>
                               {uploadStatus[index]?.status === 'error' && uploadStatus[index]?.message && (
-                                <span className="text-xs text-destructive mt-0.5">{uploadStatus[index].message}</span>
+                                <span className="text-xs text-destructive mt-0.5 whitespace-normal break-words">
+                                  {uploadStatus[index].message}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -803,7 +807,9 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                             <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                             <div>
                               <p className="font-medium text-sm">Row {index + 2}</p>
-                              <p className="text-sm text-destructive/90">{status.message}</p>
+                              <p className="text-sm text-destructive/90 whitespace-pre-wrap break-words">
+                                {status.message}
+                              </p>
                             </div>
                           </div>
                         </div>
