@@ -301,18 +301,10 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
         setUploadStatus([...statusArr])
       })
       .catch(err => {
-        let errorMessage = ''
-        if (typeof err?.message === 'string') {
-          try {
-            const parsed = JSON.parse(err.message)
-            errorMessage = parsed.message || parsed.error || JSON.stringify(parsed)
-          } catch {
-            errorMessage = err.message
-          }
-        } else {
-          errorMessage = 'Unknown error occurred'
+        statusArr[index] = { 
+          status: 'error', 
+          message: err?.message || 'Unknown error occurred'
         }
-        statusArr[index] = { status: 'error', message: errorMessage }
         setUploadStatus([...statusArr])
       })
   }, [uploadCertificate])
@@ -651,7 +643,7 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
         )}
 
         {/* Step 3: Processing */}
-        {(currentStep === 3 || (hasCompletedProcessing && uploadStatus.length > 0)) && (
+        {currentStep === 3 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -747,7 +739,7 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
         )}
 
         {/* Step 4: Complete */}
-        {currentStep === 4 && showSummary && (
+        {currentStep === 4 && showSummary && !uploading && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
