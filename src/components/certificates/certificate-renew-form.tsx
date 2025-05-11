@@ -573,7 +573,7 @@ export function CertificateRenewForm({
                           const isExpired = isCertificateExpired(cert.validTo);
                           const isRevoked = cert.certificateStatus === 'Revoked';
                           const isSelectable = !isCurrentCert && !isExpired && !isRevoked;
-                          const isSelected = selectedCert?.certificateIdentifier === cert.certificateIdentifier;
+                          const isSelected = selectedCert?.serialNumber === cert.serialNumber;
                           
                           // Skip showing the current certificate in the selection list
                           if (isCurrentCert) return null;
