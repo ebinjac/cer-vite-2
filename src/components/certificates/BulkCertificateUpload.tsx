@@ -76,11 +76,26 @@ function validateRow(row: Record<string, string>, isAmex: boolean): string[] {
     if (row.environment) errors.push('environment must be empty for Amex cert')
   } else {
     // Non Amex: validTo/environment required
-    if (!row.validTo) errors.push('validTo is required for Non Amex cert')
-    if (!row.environment) errors.push('environment is required for Non Amex cert')
-    else if (!ENV_OPTIONS.includes(row.environment)) errors.push('environment must be E1, E2, or E3')
-    // Validate validTo as date
-    if (row.validTo && isNaN(Date.parse(row.validTo))) errors.push('validTo must be a valid date (YYYY-MM-DD)')
+    if (!row.validTo) {
+      errors.push('validTo is required for Non Amex cert')
+    } else {
+      // Validate validTo format strictly (YYYY-MM-DD)
+      const dateFormatRegex = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/
+      if (!dateFormatRegex.test(row.validTo)) {
+        errors.push('validTo must be in YYYY-MM-DD format (e.g., 2025-05-19)')
+      } else {
+        // Check if it's a valid date (e.g., not 2024-02-31)
+        const date = new Date(row.validTo)
+        if (isNaN(date.getTime())) {
+          errors.push('validTo must be a valid date')
+        }
+      }
+    }
+    if (!row.environment) {
+      errors.push('environment is required for Non Amex cert')
+    } else if (!ENV_OPTIONS.includes(row.environment)) {
+      errors.push('environment must be E1, E2, or E3')
+    }
   }
   return errors
 }
@@ -317,7 +332,7 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                 <ol className="list-decimal ml-5 space-y-1">
                   <li>Download the appropriate CSV template for your certificate type.</li>
                   <li>Fill in all required fields. <span className="font-medium">Do not change the header row.</span></li>
-                  <li>For <span className="font-semibold">Non Amex</span> certificates, the <span className="font-mono">validTo</span> date must be in <span className="font-mono">YYYY-MM-DD</span> format (e.g., <span className="font-mono">2024-12-31</span>).</li>
+                  <li>For <span className="font-semibold">Non Amex</span> certificates, the <span className="font-mono">validTo</span> date must be in exact format <span className="font-mono">YYYY-MM-DD</span> (e.g., <span className="font-mono">2025-05-19</span>).</li>
                   <li>Upload the completed CSV file below.</li>
                   <li>All rows will be validated before upload. Errors will be shown inline.</li>
                 </ol>
