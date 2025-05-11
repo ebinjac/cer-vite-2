@@ -142,3 +142,69 @@ html body {
   font-optical-sizing: auto;
   font-style: normal;
 }
+
+/* Modern Clean Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0.02 286.033 / 0.2);
+  border-radius: 100px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0.05 286.033 / 0.4);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Scrollbar for Dialog components - even more subtle */
+.DialogContent::-webkit-scrollbar,
+[role="dialog"]::-webkit-scrollbar {
+  width: 4px;
+}
+
+.DialogContent::-webkit-scrollbar-thumb,
+[role="dialog"]::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0.02 286.033 / 0.15);
+}
+
+.DialogContent::-webkit-scrollbar-thumb:hover,
+[role="dialog"]::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0.05 286.033 / 0.3);
+}
+
+/* Dark mode scrollbar styles - more subtle */
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0.02 286.033 / 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.7 0.05 286.033 / 0.4);
+}
+
+/* Hide scrollbar but allow scrolling */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Firefox specific scrollbar (more limited styling options) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.5 0.02 286.033 / 0.2) transparent;
+}

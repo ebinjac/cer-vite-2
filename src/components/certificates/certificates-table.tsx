@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table'
-import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, Eye, History, RefreshCw, Pencil, Trash2, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { motion, AnimatePresence } from 'framer-motion'
@@ -71,6 +71,9 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { CertificateAddDrawerForm } from './CertificateAddDrawerForm'
 import { useQueryClient } from '@tanstack/react-query'
 import { BulkCertificateUpload } from './BulkCertificateUpload'
+import { CertificateDetailsModal } from './certificate-details-modal'
+import { CertificateUpdateDrawer } from './certificate-update-drawer'
+import { CertificateRenewDrawer } from './certificate-renew-drawer'
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -861,6 +864,9 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [bulkDrawerOpen, setBulkDrawerOpen] = React.useState(false)
+  const [updateDrawerOpen, setUpdateDrawerOpen] = React.useState(false)
+  const [renewDrawerOpen, setRenewDrawerOpen] = React.useState(false)
+  const [selectedCertificate, setSelectedCertificate] = React.useState<Certificate | null>(null)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -1655,27 +1661,57 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="12" cy="5" r="1" />
-                <circle cx="12" cy="19" r="1" />
-              </svg>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>View details</DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Renew</DropdownMenuItem>
-            <DropdownMenuItem>Revoke</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        const certificate = row.original
+        const [showDetails, setShowDetails] = React.useState(false)
+
+        return (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem onClick={() => setShowDetails(true)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setSelectedCertificate(certificate)
+                  setUpdateDrawerOpen(true)
+                }}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Update
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  setSelectedCertificate(certificate)
+                  setRenewDrawerOpen(true)
+                }}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Renew
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <History className="mr-2 h-4 w-4" />
+                  History
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <CertificateDetailsModal 
+              certificate={certificate}
+              open={showDetails}
+              onOpenChange={setShowDetails}
+            />
+          </>
+        )
+      },
       enableSorting: false,
     },
   ], [globalFilter]) // Only recalculate when globalFilter changes
@@ -1864,6 +1900,19 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
   function handleDrawerClose() {
     setDrawerOpen(false)
   }
+
+  // Add refreshing function
+  const handleCertificateUpdated = React.useCallback(() => {
+    if (onCertificateAdded) {
+      onCertificateAdded()
+    }
+  }, [onCertificateAdded])
+
+  const handleCertificateRenewed = React.useCallback(() => {
+    if (onCertificateAdded) {
+      onCertificateAdded()
+    }
+  }, [onCertificateAdded])
 
   if (isLoading) return (
     <MotionCard 
@@ -2527,6 +2576,22 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
           </MotionButton>
         </div>
       </CardFooter>
+      
+      {/* Add the update drawer at the end */}
+      <CertificateUpdateDrawer
+        certificate={selectedCertificate}
+        open={updateDrawerOpen}
+        onOpenChange={setUpdateDrawerOpen}
+        onCertificateUpdated={handleCertificateUpdated}
+      />
+      
+      {/* Add the renew drawer */}
+      <CertificateRenewDrawer
+        certificate={selectedCertificate}
+        open={renewDrawerOpen}
+        onOpenChange={setRenewDrawerOpen}
+        onCertificateRenewed={handleCertificateRenewed}
+      />
     </MotionCard>
   )
 }
