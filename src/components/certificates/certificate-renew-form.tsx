@@ -52,6 +52,13 @@ interface CertSearchResult {
   applicationId?: string
 }
 
+// Define response structure
+interface CertSearchResponse {
+  body: {
+    result: CertSearchResult[]
+  }
+}
+
 export function CertificateRenewForm({
   certificate,
   withPlanning,
@@ -119,10 +126,13 @@ export function CertificateRenewForm({
         throw new Error(`Failed to search certificates: ${res.status} ${res.statusText}`)
       }
       
-      const data: CertSearchResult[] = await res.json()
+      const data: CertSearchResponse = await res.json()
+      
+      // Extract results from the nested structure
+      const results = data.body.result || []
       
       // Sort certificates by validTo date (newest first)
-      const sortedResults = [...data].sort((a, b) => {
+      const sortedResults = [...results].sort((a, b) => {
         const dateA = new Date(a.validTo).getTime()
         const dateB = new Date(b.validTo).getTime()
         return dateB - dateA
