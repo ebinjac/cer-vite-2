@@ -204,9 +204,9 @@ export function CertificateRenewForm({
       
       // Auto-select the first valid certificate if available
       const availableCerts = sortedResults.filter(cert => 
-        cert.certificateStatus === 'Issued' && 
-        cert.serialNumber !== certificate.serialNumber &&
-        !isCertificateExpired(cert.validTo)
+        cert.certificateStatus !== 'Revoked' && 
+        !isCertificateExpired(cert.validTo) &&
+        cert.serialNumber !== certificate.serialNumber
       )
       
       if (availableCerts.length > 0) {
@@ -567,16 +567,40 @@ export function CertificateRenewForm({
                         
                         <div className="text-sm font-medium mt-4 mb-2">Select Certificate for Renewal</div>
                         
+                        {/* Calculate valid certificates for display */}
+                        {(() => {
+                          const validCerts = searchResults.filter(cert => 
+                            !isCertificateExpired(cert.validTo) && 
+                            cert.certificateStatus !== 'Revoked' &&
+                            cert.serialNumber !== certificate.serialNumber
+                          );
+                          
+                          if (validCerts.length === 0) {
+                            return (
+                              <motion.div 
+                                className="text-center py-4 text-sm text-muted-foreground"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                              >
+                                No valid certificates available for renewal. All certificates are either expired, revoked, or the current certificate.
+                              </motion.div>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
+                        
                         {/* Available Certificates */}
                         {searchResults.map((cert) => {
                           const isCurrentCert = cert.serialNumber === certificate.serialNumber;
                           const isExpired = isCertificateExpired(cert.validTo);
                           const isRevoked = cert.certificateStatus === 'Revoked';
-                          const isSelectable = !isCurrentCert && !isExpired && !isRevoked;
-                          const isSelected = selectedCert?.serialNumber === cert.serialNumber;
                           
-                          // Skip showing the current certificate in the selection list
-                          if (isCurrentCert) return null;
+                          // Skip showing expired, revoked or current certificates
+                          if (isCurrentCert || isExpired || isRevoked) return null;
+                          
+                          const isSelectable = true; // All displayed certificates are now selectable
+                          const isSelected = selectedCert?.serialNumber === cert.serialNumber;
                           
                           // Format dates for display
                           const validToDate = new Date(cert.validTo).toLocaleDateString();
@@ -586,14 +610,12 @@ export function CertificateRenewForm({
                               key={cert.certificateIdentifier}
                               className={cn(
                                 "relative flex items-start border rounded-md p-3 cursor-pointer",
-                                !isSelectable && "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed",
-                                isSelected && "bg-blue-50 border-blue-200",
-                                isSelectable && !isSelected && "hover:bg-gray-50"
+                                isSelected ? "bg-blue-50 border-blue-200" : "hover:bg-gray-50"
                               )}
                               variants={itemVariants}
-                              whileHover={isSelectable ? { scale: 1.01 } : undefined}
-                              whileTap={isSelectable ? { scale: 0.99 } : undefined}
-                              onClick={() => isSelectable && selectCertificate(isSelected ? null : cert)}
+                              whileHover={{ scale: 1.01 }}
+                              whileTap={{ scale: 0.99 }}
+                              onClick={() => selectCertificate(isSelected ? null : cert)}
                             >
                               <div className="flex-1">
                                 <div className="flex items-start justify-between">
@@ -622,16 +644,6 @@ export function CertificateRenewForm({
                                         Active
                                       </Badge>
                                     )}
-                                    {isRevoked && (
-                                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                        Revoked
-                                      </Badge>
-                                    )}
-                                    {isExpired && (
-                                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                        Expired
-                                      </Badge>
-                                    )}
                                   </div>
                                 </div>
                                 
@@ -653,30 +665,20 @@ export function CertificateRenewForm({
                                     <span className="text-xs font-medium">{cert.issuerCertAuthName}</span>
                                   </div>
                                 </div>
-                                
-                                {!isSelectable && (
-                                  <div className="mt-2 text-xs text-gray-500 italic">
-                                    {isRevoked ? "This certificate has been revoked and cannot be selected" : 
-                                     isExpired ? "This certificate has expired and cannot be selected" :
-                                     "This certificate cannot be selected"}
-                                  </div>
-                                )}
                               </div>
                               
-                              {isSelectable && (
-                                <div className={cn(
-                                  "w-5 h-5 rounded-full border-2 flex-shrink-0 ml-2 mt-1",
-                                  isSelected 
-                                    ? "bg-blue-500 border-blue-600 flex items-center justify-center" 
-                                    : "border-gray-300"
-                                )}>
-                                  {isSelected && (
-                                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                                      <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                  )}
-                                </div>
-                              )}
+                              <div className={cn(
+                                "w-5 h-5 rounded-full border-2 flex-shrink-0 ml-2 mt-1",
+                                isSelected 
+                                  ? "bg-blue-500 border-blue-600 flex items-center justify-center" 
+                                  : "border-gray-300"
+                              )}>
+                                {isSelected && (
+                                  <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                )}
+                              </div>
                             </motion.div>
                           );
                         })}
