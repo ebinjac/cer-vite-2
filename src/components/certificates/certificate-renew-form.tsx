@@ -11,10 +11,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { InfoIcon, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { CERTIFICATE_RENEW_API, CERTIFICATE_SEARCH_API } from '@/lib/api-endpoints'
 import DatePicker from '@/components/ui/DatePicker'
-import { format, isAfter } from 'date-fns'
+import { format, isAfter, isBefore } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // Define form value types
 interface RenewalFormValues {
@@ -59,6 +60,33 @@ interface CertSearchResponse {
   }
 }
 
+// Animation variants
+const fadeIn = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+}
+
+const staggerChildren = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+  hover: { scale: 1.02, transition: { duration: 0.2 } },
+  selected: { scale: 1.02, boxShadow: "0 0 0 2px #3b82f6" }
+}
+
+// Motion components
+const MotionAlert = motion(Alert)
+const MotionRadioGroup = motion(RadioGroup)
+
 export function CertificateRenewForm({
   certificate,
   withPlanning,
@@ -71,6 +99,7 @@ export function CertificateRenewForm({
   const [isSearching, setIsSearching] = React.useState(false)
   const [searchResults, setSearchResults] = React.useState<CertSearchResult[]>([])
   const [hasSearched, setHasSearched] = React.useState(false)
+  const [manualSerialEntry, setManualSerialEntry] = React.useState(false)
   
   // Set default expiry date to 1 year from now
   const defaultExpiryDate = React.useMemo(() => {
@@ -98,6 +127,7 @@ export function CertificateRenewForm({
   // Watch form values
   const expiryDate = watch('expiryDate');
   const selectedCertificateId = watch('selectedCertificateId');
+  const serialNumber = watch('serialNumber');
 
   // Clear API error after successful submit
   React.useEffect(() => {
@@ -109,6 +139,17 @@ export function CertificateRenewForm({
     if (apiError) setApiError(null)
   }
 
+  // Function to check if certificate is expired
+  const isCertificateExpired = (validTo: string): boolean => {
+    try {
+      const expiryDate = new Date(validTo);
+      const today = new Date();
+      return isBefore(expiryDate, today);
+    } catch (error) {
+      return false;
+    }
+  }
+  
   // Function to search certificates by common name
   const searchCertificates = async () => {
     if (!certificate?.commonName) {
@@ -144,7 +185,8 @@ export function CertificateRenewForm({
       // Select the first valid certificate by default if available
       const availableCerts = sortedResults.filter(cert => 
         cert.certificateStatus === 'Issued' && 
-        cert.serialNumber !== certificate.serialNumber
+        cert.serialNumber !== certificate.serialNumber &&
+        !isCertificateExpired(cert.validTo)
       )
       
       if (availableCerts.length > 0) {
@@ -171,22 +213,14 @@ export function CertificateRenewForm({
   const validateForm = (values: RenewalFormValues): boolean => {
     let isValid = true;
     
-    if (isAmexCert) {
-      // For Amex certificates, we need a selected certificate
-      if (!values.selectedCertificateId) {
-        isValid = false;
-      }
-    } else {
-      // For Non-Amex certificates
-      // Check for required serial number
-      if (!values.serialNumber) {
-        isValid = false;
-      }
-      
-      // Check for required expiry date
-      if (!values.expiryDate) {
-        isValid = false;
-      }
+    // For both Amex and Non-Amex certificates, a serial number is required
+    if (!values.serialNumber) {
+      isValid = false;
+    }
+    
+    // For Non-Amex certificates only, an expiry date is required
+    if (isNonAmexCert && !values.expiryDate) {
+      isValid = false;
     }
     
     // Check for required change number in planning mode
@@ -202,6 +236,17 @@ export function CertificateRenewForm({
     setValue('selectedCertificateId', cert.certificateIdentifier)
     setValue('serialNumber', cert.serialNumber)
     handleFieldChange()
+  }
+
+  // Toggle between manual and automatic serial number entry
+  const toggleManualSerialEntry = () => {
+    setManualSerialEntry(prev => {
+      // If switching to manual, clear the selected certificate
+      if (!prev) {
+        setValue('selectedCertificateId', '')
+      }
+      return !prev
+    })
   }
 
   const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
@@ -229,7 +274,7 @@ export function CertificateRenewForm({
           ? format(values.expiryDate, 'yyyy-MM-dd') 
           : undefined,
         isAmexCert: certificate.isAmexCert,
-        selectedCertificateId: isAmexCert ? values.selectedCertificateId : undefined
+        selectedCertificateId: isAmexCert && !manualSerialEntry ? values.selectedCertificateId : undefined
       }
       
       // In a real application, we would call the API
@@ -299,18 +344,38 @@ export function CertificateRenewForm({
     });
     handleFieldChange();
   };
+
+  // Check if a cert can be selected (not revoked, not expired, not current cert)
+  const canSelectCertificate = (cert: CertSearchResult): boolean => {
+    return cert.certificateStatus !== 'Revoked' && 
+           !isCertificateExpired(cert.validTo) &&
+           cert.serialNumber !== certificate.serialNumber;
+  }
   
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-6">
-      {apiError && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{apiError}</AlertDescription>
-        </Alert>
-      )}
+      <AnimatePresence>
+        {apiError && (
+          <MotionAlert 
+            variant="destructive" 
+            className="mb-4"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{apiError}</AlertDescription>
+          </MotionAlert>
+        )}
+      </AnimatePresence>
       
-      <div className="mb-2">
+      <motion.div 
+        className="mb-2"
+        initial="hidden"
+        animate="visible"
+        variants={fadeIn}
+      >
         <h3 className="text-base font-medium mb-2">
           {withPlanning ? 'Renew with Planning' : 'Renew without Planning'}
         </h3>
@@ -320,190 +385,300 @@ export function CertificateRenewForm({
             : 'Quickly renew the certificate without a change number'}
         </p>
 
-        <Alert className="mb-4">
+        <MotionAlert 
+          className="mb-4"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
           <InfoIcon className="h-4 w-4" />
           <AlertTitle>Certificate Information</AlertTitle>
           <AlertDescription className="mt-2">
-            <div className="space-y-2 text-sm">
-              <div className="grid grid-cols-2 gap-1">
+            <motion.div 
+              className="space-y-2 text-sm"
+              variants={staggerChildren}
+              initial="hidden"
+              animate="visible"
+            >
+              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
                 <span className="font-medium">Certificate:</span>
                 <span className="font-semibold">{certificate.commonName}</span>
-              </div>
+              </motion.div>
               
-              <div className="grid grid-cols-2 gap-1">
+              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
                 <span className="font-medium">Current Serial #:</span>
                 <span className="font-mono text-xs">{certificate.serialNumber}</span>
-              </div>
+              </motion.div>
               
-              <div className="grid grid-cols-2 gap-1">
+              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
                 <span className="font-medium">Type:</span>
                 <span>{certificate.certType || 'N/A'}</span>
-              </div>
+              </motion.div>
               
-              <div className="grid grid-cols-2 gap-1">
+              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
                 <span className="font-medium">Amex Certificate:</span>
                 <span>{certificate.isAmexCert}</span>
-              </div>
+              </motion.div>
               
-              <div className="grid grid-cols-2 gap-1">
+              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
                 <span className="font-medium">Current Expiry:</span>
                 <span>{expiryDateDisplay}</span>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
             
-            <div className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-400">
+            <motion.div 
+              className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-400"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
               The certificate will be renewed with the new details you provide below.
-            </div>
+            </motion.div>
           </AlertDescription>
-        </Alert>
-      </div>
+        </MotionAlert>
+      </motion.div>
 
-      <div className="space-y-4">
-        {isAmexCert ? (
+      <motion.div 
+        className="space-y-4"
+        initial="hidden"
+        animate="visible"
+        variants={fadeIn}
+        transition={{ delay: 0.3 }}
+      >
+        {isAmexCert && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium">Available Certificates</h4>
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm"
-                onClick={searchCertificates}
-                disabled={isSearching}
-                className="h-8"
-              >
-                {isSearching ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                )}
-                Refresh
-              </Button>
+              <div className="flex gap-2">
+                <motion.button
+                  type="button"
+                  className={cn(
+                    "text-xs px-2 py-1 rounded",
+                    manualSerialEntry 
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  )}
+                  onClick={toggleManualSerialEntry}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {manualSerialEntry ? "Select Certificate" : "Enter Manually"}
+                </motion.button>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={searchCertificates}
+                    disabled={isSearching}
+                    className="h-8"
+                  >
+                    {isSearching ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                    )}
+                    Refresh
+                  </Button>
+                </motion.div>
+              </div>
             </div>
             
-            {isSearching ? (
-              <div className="flex justify-center items-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="ml-2 text-sm">Searching for certificates...</span>
-              </div>
-            ) : (
-              <div>
-                {searchResults.length > 0 ? (
-                  <RadioGroup
-                    value={selectedCertificateId}
-                    onValueChange={(value) => {
-                      const cert = searchResults.find(c => c.certificateIdentifier === value);
-                      if (cert) {
-                        setValue('selectedCertificateId', value);
-                        setValue('serialNumber', cert.serialNumber);
-                      }
-                    }}
-                    className="space-y-2"
+            {!manualSerialEntry ? (
+              <>
+                {isSearching ? (
+                  <motion.div 
+                    className="flex justify-center items-center py-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                   >
-                    {searchResults.map((cert) => {
-                      const isCurrentCert = cert.serialNumber === certificate.serialNumber;
-                      const isNewer = isNewerCertificate(cert);
-                      
-                      // Format dates for display
-                      const validToDate = new Date(cert.validTo).toLocaleDateString();
-                      
-                      return (
-                        <div
-                          key={cert.certificateIdentifier}
-                          className={cn(
-                            "relative flex items-start border rounded-md p-3",
-                            isCurrentCert ? "bg-gray-50 border-gray-200" : "hover:bg-gray-50",
-                            selectedCertificateId === cert.certificateIdentifier && "ring-2 ring-primary"
-                          )}
-                        >
-                          <div className="flex items-center h-5 mt-1">
-                            <RadioGroupItem
-                              value={cert.certificateIdentifier}
-                              id={cert.certificateIdentifier}
-                              disabled={isCurrentCert}
-                            />
-                          </div>
-                          <div className="ml-3 w-full">
-                            <Label
-                              htmlFor={cert.certificateIdentifier}
-                              className={cn("font-medium block", 
-                                isCurrentCert ? "text-gray-500" : "cursor-pointer"
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Loader2 className="h-6 w-6 text-primary" />
+                    </motion.div>
+                    <span className="ml-2 text-sm">Searching for certificates...</span>
+                  </motion.div>
+                ) : (
+                  <AnimatePresence>
+                    {searchResults.length > 0 ? (
+                      <MotionRadioGroup
+                        value={selectedCertificateId}
+                        onValueChange={(value) => {
+                          const cert = searchResults.find(c => c.certificateIdentifier === value);
+                          if (cert) {
+                            setValue('selectedCertificateId', value);
+                            setValue('serialNumber', cert.serialNumber);
+                          }
+                        }}
+                        className="space-y-2"
+                        variants={staggerChildren}
+                        initial="hidden"
+                        animate="visible"
+                      >
+                        {searchResults.map((cert) => {
+                          const isCurrentCert = cert.serialNumber === certificate.serialNumber;
+                          const isSelectable = canSelectCertificate(cert);
+                          const isExpired = isCertificateExpired(cert.validTo);
+                          const isRevoked = cert.certificateStatus === 'Revoked';
+                          
+                          // Format dates for display
+                          const validToDate = new Date(cert.validTo).toLocaleDateString();
+                          
+                          return (
+                            <motion.div
+                              key={cert.certificateIdentifier}
+                              className={cn(
+                                "relative flex items-start border rounded-md p-3",
+                                !isSelectable && "bg-gray-50 border-gray-200",
+                                isSelectable && "hover:bg-gray-50",
+                                selectedCertificateId === cert.certificateIdentifier && "ring-2 ring-primary"
                               )}
+                              variants={itemVariants}
+                              whileHover={isSelectable ? "hover" : undefined}
+                              animate={selectedCertificateId === cert.certificateIdentifier ? "selected" : "visible"}
+                              transition={{ duration: 0.2 }}
                             >
-                              <div className="flex items-center justify-between">
-                                <span className="font-mono text-xs">{cert.serialNumber}</span>
-                                <div className="flex gap-1">
-                                  {cert.currentCert && (
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
-                                      Active
-                                    </Badge>
+                              <div className="flex items-center h-5 mt-1">
+                                <RadioGroupItem
+                                  value={cert.certificateIdentifier}
+                                  id={cert.certificateIdentifier}
+                                  disabled={!isSelectable}
+                                />
+                              </div>
+                              <div className="ml-3 w-full">
+                                <Label
+                                  htmlFor={cert.certificateIdentifier}
+                                  className={cn("font-medium block", 
+                                    !isSelectable ? "text-gray-500" : "cursor-pointer"
                                   )}
-                                  {isCurrentCert && (
-                                    <Badge variant="outline" className="bg-gray-50 text-gray-700">
-                                      Current
-                                    </Badge>
-                                  )}
-                                  {isNewer && (
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100">
-                                      Newer
-                                    </Badge>
-                                  )}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-mono text-xs">{cert.serialNumber}</span>
+                                    <div className="flex gap-1">
+                                      {cert.currentCert && (
+                                        <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
+                                          Active
+                                        </Badge>
+                                      )}
+                                      {isCurrentCert && (
+                                        <Badge variant="outline" className="bg-gray-50 text-gray-700">
+                                          Current
+                                        </Badge>
+                                      )}
+                                      {isRevoked && (
+                                        <Badge variant="outline" className="bg-red-50 text-red-700">
+                                          Revoked
+                                        </Badge>
+                                      )}
+                                      {isExpired && (
+                                        <Badge variant="outline" className="bg-amber-50 text-amber-700">
+                                          Expired
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Label>
+                                <div className="text-sm text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+                                  <div className="flex justify-between">
+                                    <span className="text-xs">Status:</span>
+                                    <span className="text-xs font-medium">{cert.certificateStatus}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-xs">Expires:</span>
+                                    <span className="text-xs font-medium">{validToDate}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-xs">Env:</span>
+                                    <span className="text-xs font-medium">{cert.environment || 'N/A'}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-xs">Issuer:</span>
+                                    <span className="text-xs font-medium">{cert.issuerCertAuthName}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </Label>
-                            <div className="text-sm text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
-                              <div className="flex justify-between">
-                                <span className="text-xs">Status:</span>
-                                <span className="text-xs font-medium">{cert.certificateStatus}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs">Expires:</span>
-                                <span className="text-xs font-medium">{validToDate}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs">Env:</span>
-                                <span className="text-xs font-medium">{cert.environment || 'N/A'}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-xs">Issuer:</span>
-                                <span className="text-xs font-medium">{cert.issuerCertAuthName}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </RadioGroup>
-                ) : hasSearched ? (
-                  <div className="text-center py-6 text-sm text-muted-foreground">
-                    No certificates found for {certificate.commonName}
-                  </div>
-                ) : null}
-              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </MotionRadioGroup>
+                    ) : hasSearched ? (
+                      <motion.div 
+                        className="text-center py-6 text-sm text-muted-foreground"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        No certificates found for {certificate.commonName}
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                )}
+              </>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    New Serial Number <span className="text-red-500">*</span>
+                  </label>
+                  <Input 
+                    {...register('serialNumber', { 
+                      required: 'New Serial Number is required',
+                      onChange: handleFieldChange
+                    })} 
+                    placeholder="Enter new serial number manually" 
+                    className="font-mono text-xs"
+                  />
+                  {errors.serialNumber && (
+                    <motion.p 
+                      className="text-xs text-red-500 mt-1"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      {errors.serialNumber.message}
+                    </motion.p>
+                  )}
+                </div>
+              </motion.div>
             )}
             
-            {selectedCertificateId && (
-              <div>
+            {selectedCertificateId && !manualSerialEntry && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
                 <label className="block text-sm font-medium mb-1">Selected Serial Number</label>
                 <Input 
                   value={watch('serialNumber')} 
                   disabled
                   className="bg-gray-50 text-gray-600 font-mono text-xs"
                 />
-              </div>
+              </motion.div>
             )}
           </div>
-        ) : (
+        )}
+
+        {!isAmexCert && (
           <div className="grid grid-cols-1 gap-4">
-            <div>
+            <motion.div variants={itemVariants}>
               <label className="block text-sm font-medium mb-1">Current Serial Number</label>
               <Input 
                 value={certificate.serialNumber || ''} 
                 disabled
                 className="bg-gray-50 text-gray-600 font-mono text-xs"
               />
-            </div>
+            </motion.div>
             
-            <div>
+            <motion.div variants={itemVariants}>
               <label className="block text-sm font-medium mb-1">
                 New Serial Number <span className="text-red-500">*</span>
               </label>
@@ -516,12 +691,18 @@ export function CertificateRenewForm({
                 className="font-mono text-xs"
               />
               {errors.serialNumber && (
-                <p className="text-xs text-red-500 mt-1">{errors.serialNumber.message}</p>
+                <motion.p 
+                  className="text-xs text-red-500 mt-1"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  {errors.serialNumber.message}
+                </motion.p>
               )}
-            </div>
+            </motion.div>
             
             {isNonAmexCert && (
-              <div>
+              <motion.div variants={itemVariants}>
                 <label className="block text-sm font-medium mb-1">
                   Expiry Date <span className="text-red-500">*</span>
                   <span className="text-xs text-muted-foreground ml-1">(Required for Non-Amex certificates)</span>
@@ -532,15 +713,21 @@ export function CertificateRenewForm({
                   placeholder="Select new expiry date"
                 />
                 {!expiryDate && isSubmitSuccessful && (
-                  <p className="text-xs text-red-500 mt-1">Expiry Date is required for Non-Amex certificates</p>
+                  <motion.p 
+                    className="text-xs text-red-500 mt-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    Expiry Date is required for Non-Amex certificates
+                  </motion.p>
                 )}
-              </div>
+              </motion.div>
             )}
           </div>
         )}
         
         {withPlanning && (
-          <div>
+          <motion.div variants={itemVariants}>
             <label className="block text-sm font-medium mb-1">
               Change Number <span className="text-red-500">*</span>
             </label>
@@ -552,26 +739,54 @@ export function CertificateRenewForm({
               placeholder="Enter change number" 
             />
             {errors.changeNumber && (
-              <p className="text-xs text-red-500 mt-1">{errors.changeNumber.message}</p>
+              <motion.p 
+                className="text-xs text-red-500 mt-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {errors.changeNumber.message}
+              </motion.p>
             )}
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
       
-      <div className="flex gap-2 mt-6">
-        <Button 
-          type="submit" 
-          disabled={isSubmitting} 
-          className="bg-green-600 hover:bg-green-700"
+      <motion.div 
+        className="flex gap-2 mt-6"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
-          {isSubmitting ? 'Renewing...' : 'Renew Certificate'}
-        </Button>
-        <DrawerClose asChild>
-          <Button type="button" variant="outline">
-            Cancel
+          <Button 
+            type="submit" 
+            disabled={isSubmitting} 
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Renewing...
+              </>
+            ) : (
+              'Renew Certificate'
+            )}
           </Button>
-        </DrawerClose>
-      </div>
+        </motion.div>
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <DrawerClose asChild>
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+          </DrawerClose>
+        </motion.div>
+      </motion.div>
     </form>
   )
 } 
