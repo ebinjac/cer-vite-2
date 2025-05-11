@@ -23,6 +23,7 @@ interface RenewalFormValues {
   changeNumber?: string
   expiryDate?: Date
   selectedCertificateId?: string
+  comment: string
 }
 
 interface CertificateRenewFormProps {
@@ -126,12 +127,14 @@ export function CertificateRenewForm({
       changeNumber: '',
       expiryDate: defaultExpiryDate,
       selectedCertificateId: '',
+      comment: 'Renewed the certificate',
     },
   })
   
   // Watch form values
   const expiryDate = watch('expiryDate');
   const serialNumber = watch('serialNumber');
+  const comment = watch('comment');
 
   // Clear API error after successful submit
   React.useEffect(() => {
@@ -277,7 +280,11 @@ export function CertificateRenewForm({
     }
     
     try {
-      // Prepare payload
+      // Get current date in YYYY-MM-DD format for renewalDate
+      const today = new Date()
+      const renewalDate = format(today, 'yyyy-MM-dd')
+      
+      // Prepare payload with all required fields for the renewal API
       const payload = {
         certificateIdentifier: certificate.certificateIdentifier,
         serialNumber: values.serialNumber,
@@ -291,16 +298,28 @@ export function CertificateRenewForm({
         isAmexCert: certificate.isAmexCert,
         selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
           ? selectedCert.certificateIdentifier 
-          : undefined
+          : undefined,
+        // Additional required fields for the /api/v1/renewal endpoint
+        checklist: "1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1",
+        comment: values.comment || "Renewed the certificate",
+        currentStatus: "completed",
+        id: certificate.id || 0,
+        renewalDate: renewalDate,
+        renewedBy: "", // Should be populated from user context in a real app
+        renewingTeamName: certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security",
+        underRenewal: true,
+        validTo: certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : undefined
       }
       
-      // In a real application, we would call the API
-      // This is set up but commented out for now since the endpoint might not exist yet
-      /*
+      console.log('Certificate renewal payload:', payload)
+      
+      // Send the data to the renewal API endpoint
       const res = await fetch(CERTIFICATE_RENEW_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       })
       
       if (!res.ok) {
@@ -310,14 +329,12 @@ export function CertificateRenewForm({
         } catch {}
         throw new Error(errorText || `Failed to renew certificate: ${res.status} ${res.statusText}`)
       }
-      */
       
-      // Simulate API call for demo purposes
-      console.log('Certificate renewal payload:', payload)
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Parse response if needed
+      const responseData = await res.json()
       
       toast.success('Certificate renewed successfully!', { 
-        description: `The certificate has been renewed with the new serial number ${values.serialNumber}.` 
+        description: `The certificate has been renewed with the new serial number ${values.serialNumber}.${responseData?.message ? ` ${responseData.message}` : ''}` 
       })
       
       if (onSuccess) onSuccess()
@@ -835,6 +852,18 @@ export function CertificateRenewForm({
             )}
           </motion.div>
         )}
+        
+        <motion.div variants={itemVariants}>
+          <label className="block text-sm font-medium mb-1">
+            Comment
+          </label>
+          <Input 
+            {...register('comment', { 
+              onChange: handleFieldChange
+            })} 
+            placeholder="Enter comment about this renewal" 
+          />
+        </motion.div>
       </motion.div>
       
       <motion.div 
@@ -855,10 +884,10 @@ export function CertificateRenewForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Renewing...
+                {withPlanning ? 'Submitting Renewal...' : 'Renewing Certificate...'}
               </>
             ) : (
-              'Renew Certificate'
+              withPlanning ? 'Submit Renewal Request' : 'Renew Certificate'
             )}
           </Button>
         </motion.div>

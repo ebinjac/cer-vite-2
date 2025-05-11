@@ -5,7 +5,7 @@ export const CERT_API = 'https://mocki.io/v1/628243bc-9d5f-4708-b4e5-9fd53c486ba
 export const SERVICEID_API = 'https://mocki.io/v1/3fe73122-007d-4c9b-9b4d-aee79deb1f80'
 export const CERTIFICATE_SAVE_API = 'http://localhost:5000/api/v2/certificate/savetodb'
 export const CERTIFICATE_UPDATE_API = '/api/v1/updatecert'
-export const CERTIFICATE_RENEW_API = '/api/v1/renewcert'
+export const CERTIFICATE_RENEW_API = '/api/v1/renewal'
 export const CERTIFICATE_SEARCH_API = (commonName: string) => `/api/v1/searchcertificate/${commonName}`
 export const APPLICATION_LIST_API = (teamName: string) => `/api/v1/contact/applist/${teamName}`
 export const TEAMS_API = '/api/v1/teams' 
