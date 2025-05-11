@@ -52,7 +52,7 @@ const schema = baseSchema.superRefine((values, ctx) => {
 
 export type CertificateAddFormValues = z.infer<typeof schema>
 
-export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void }) {
+export function CertificateAddDrawerForm({ onSuccess, onCertificateAdded }: { onSuccess?: () => void, onCertificateAdded?: () => void }) {
   const [showMore, setShowMore] = React.useState(false)
   const [apiError, setApiError] = React.useState<string | null>(null)
   const { formValues, setFormValues, resetForm } = useCertificateAddFormStore()
@@ -174,6 +174,7 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
       reset()
       resetForm()
       if (onSuccess) onSuccess()
+      if (onCertificateAdded) onCertificateAdded()
     } catch (err: any) {
       let message = 'An error occurred while saving the certificate.'
       if (err?.name === 'TypeError' && err?.message === 'Failed to fetch') {

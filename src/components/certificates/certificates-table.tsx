@@ -69,6 +69,7 @@ import { useTeamStore } from '@/store/team-store'
 import { cn } from '@/lib/utils'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { CertificateAddDrawerForm } from './CertificateAddDrawerForm'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -130,6 +131,7 @@ interface CertificateTableProps {
   isError: boolean
   error?: Error | null
   teamName?: string
+  onCertificateAdded?: () => void
 }
 
 const statusIcons: Record<string, React.ReactNode> = {
@@ -809,7 +811,7 @@ function MotionCheckbox({ checked, onChange, label }: {
   );
 }
 
-export function CertificatesTable({ data, isLoading, isError, error, teamName }: CertificateTableProps) {
+export function CertificatesTable({ data, isLoading, isError, error, teamName, onCertificateAdded }: CertificateTableProps & { onCertificateAdded?: () => void }) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
@@ -1857,6 +1859,10 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
   // Calculate the number of active filters
   const hasActiveFilters = globalFilter || statusFilter.length > 0 || expirationFilter.length > 0
 
+  function handleDrawerClose() {
+    setDrawerOpen(false)
+  }
+
   if (isLoading) return (
     <MotionCard 
       className="shadow-sm border-border/40 p-8 flex items-center justify-center"
@@ -1957,7 +1963,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName }:
                 <DrawerHeader>
                   <DrawerTitle>Add Certificate</DrawerTitle>
                 </DrawerHeader>
-                <CertificateAddDrawerForm onSuccess={() => setDrawerOpen(false)} />
+                <CertificateAddDrawerForm onSuccess={handleDrawerClose} onCertificateAdded={onCertificateAdded} />
               </DrawerContent>
             </Drawer>
           </div>
