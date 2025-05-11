@@ -104,6 +104,7 @@ export function CertificateRenewForm({
   const [searchResults, setSearchResults] = React.useState<CertSearchResult[]>([])
   const [hasSearched, setHasSearched] = React.useState(false)
   const [manualSerialEntry, setManualSerialEntry] = React.useState(false)
+  const [selectedCert, setSelectedCert] = React.useState<CertSearchResult | null>(null)
   
   // Set default expiry date to 1 year from now
   const defaultExpiryDate = React.useMemo(() => {
@@ -130,7 +131,6 @@ export function CertificateRenewForm({
   
   // Watch form values
   const expiryDate = watch('expiryDate');
-  const selectedCertificateId = watch('selectedCertificateId');
   const serialNumber = watch('serialNumber');
 
   // Clear API error after successful submit
@@ -142,6 +142,19 @@ export function CertificateRenewForm({
   function handleFieldChange() {
     if (apiError) setApiError(null)
   }
+
+  // Select a certificate
+  const selectCertificate = (cert: CertSearchResult | null) => {
+    setSelectedCert(cert);
+    if (cert) {
+      setValue('serialNumber', cert.serialNumber);
+      setValue('selectedCertificateId', cert.certificateIdentifier);
+    } else {
+      setValue('serialNumber', '');
+      setValue('selectedCertificateId', '');
+    }
+    handleFieldChange();
+  };
 
   // Function to check if certificate is expired
   const isCertificateExpired = (validTo: string): boolean => {
@@ -165,8 +178,7 @@ export function CertificateRenewForm({
     setApiError(null)
     
     // Clear previous selection when refreshing
-    setValue('selectedCertificateId', '')
-    setValue('serialNumber', '')
+    selectCertificate(null);
     
     try {
       const res = await fetch(CERTIFICATE_SEARCH_API(certificate.commonName))
@@ -190,7 +202,7 @@ export function CertificateRenewForm({
       setSearchResults(sortedResults)
       setHasSearched(true)
       
-      // Select the first valid certificate by default if available
+      // Auto-select the first valid certificate if available
       const availableCerts = sortedResults.filter(cert => 
         cert.certificateStatus === 'Issued' && 
         cert.serialNumber !== certificate.serialNumber &&
@@ -198,8 +210,7 @@ export function CertificateRenewForm({
       )
       
       if (availableCerts.length > 0) {
-        setValue('selectedCertificateId', availableCerts[0].certificateIdentifier)
-        setValue('serialNumber', availableCerts[0].serialNumber)
+        selectCertificate(availableCerts[0]);
       }
       
     } catch (err: any) {
@@ -216,6 +227,20 @@ export function CertificateRenewForm({
       searchCertificates()
     }
   }, [isAmexCert, certificate?.commonName])
+
+  // Toggle between manual and automatic serial number entry
+  const toggleManualSerialEntry = () => {
+    setManualSerialEntry(prev => {
+      if (prev) {
+        // Switching back to certificate selection
+        return false;
+      } else {
+        // Switching to manual entry, clear selected certificate
+        selectCertificate(null);
+        return true;
+      }
+    })
+  }
 
   // Custom validation function
   const validateForm = (values: RenewalFormValues): boolean => {
@@ -239,24 +264,6 @@ export function CertificateRenewForm({
     return isValid;
   };
   
-  // Handle selecting a certificate from search results
-  const handleCertificateSelect = (cert: CertSearchResult) => {
-    setValue('selectedCertificateId', cert.certificateIdentifier)
-    setValue('serialNumber', cert.serialNumber)
-    handleFieldChange()
-  }
-
-  // Toggle between manual and automatic serial number entry
-  const toggleManualSerialEntry = () => {
-    setManualSerialEntry(prev => {
-      // If switching to manual, clear the selected certificate
-      if (!prev) {
-        setValue('selectedCertificateId', '')
-      }
-      return !prev
-    })
-  }
-
   const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
     if (!certificate?.certificateIdentifier) {
       setApiError('Certificate identifier is missing')
@@ -282,7 +289,9 @@ export function CertificateRenewForm({
           ? format(values.expiryDate, 'yyyy-MM-dd') 
           : undefined,
         isAmexCert: certificate.isAmexCert,
-        selectedCertificateId: isAmexCert && !manualSerialEntry ? values.selectedCertificateId : undefined
+        selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
+          ? selectedCert.certificateIdentifier 
+          : undefined
       }
       
       // In a real application, we would call the API
@@ -455,39 +464,53 @@ export function CertificateRenewForm({
       >
         {isAmexCert && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">Available Certificates</h4>
+            <div className="flex items-center justify-between border-b pb-3">
+              <h4 className="text-sm font-medium">Renew with Certificate</h4>
               <div className="flex gap-2">
                 <motion.button
                   type="button"
                   className={cn(
-                    "text-xs px-2 py-1 rounded",
+                    "flex items-center text-xs px-3 py-1 rounded-full",
                     manualSerialEntry 
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                      ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
                   )}
                   onClick={toggleManualSerialEntry}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                 >
-                  {manualSerialEntry ? "Select Certificate" : "Enter Manually"}
+                  {manualSerialEntry ? (
+                    <>
+                      <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 6l6 6-6 6"/>
+                      </svg>
+                      Use Certificate List
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 8.517L12 3 7 8.517M7 15.48l5 5.517 5-5.517"/>
+                      </svg>
+                      Enter Manually
+                    </>
+                  )}
                 </motion.button>
                 <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   <Button 
                     type="button" 
-                    variant="ghost" 
+                    variant="outline" 
                     size="sm"
                     onClick={searchCertificates}
-                    disabled={isSearching}
-                    className="h-8"
+                    disabled={isSearching || manualSerialEntry}
+                    className="h-7 px-3 py-1 text-xs flex items-center"
                   >
                     {isSearching ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     ) : (
-                      <RefreshCw className="h-4 w-4 mr-1" />
+                      <RefreshCw className="h-3 w-3 mr-1" />
                     )}
                     Refresh
                   </Button>
@@ -515,25 +538,45 @@ export function CertificateRenewForm({
                 ) : (
                   <AnimatePresence>
                     {searchResults.length > 0 ? (
-                      <MotionRadioGroup
-                        value={selectedCertificateId}
-                        onValueChange={(value) => {
-                          const cert = searchResults.find(c => c.certificateIdentifier === value);
-                          if (cert) {
-                            setValue('selectedCertificateId', value);
-                            setValue('serialNumber', cert.serialNumber);
-                          }
-                        }}
+                      <motion.div
                         className="space-y-2"
                         variants={staggerChildren}
                         initial="hidden"
                         animate="visible"
                       >
+                        {/* Current Certificate Display (For Reference Only) */}
+                        <motion.div
+                          className="relative flex items-start border-2 border-gray-300 border-dashed rounded-md p-3 bg-gray-50"
+                          variants={itemVariants}
+                        >
+                          <div className="w-full">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium text-gray-700">Current Certificate</div>
+                                <div className="font-mono text-xs text-gray-600 mt-1">{certificate.serialNumber}</div>
+                              </div>
+                              <Badge variant="outline" className="bg-gray-200 text-gray-700">
+                                Current
+                              </Badge>
+                            </div>
+                            <div className="mt-2 text-sm text-gray-500">
+                              This is the certificate you are currently renewing
+                            </div>
+                          </div>
+                        </motion.div>
+                        
+                        <div className="text-sm font-medium mt-4 mb-2">Select Certificate for Renewal</div>
+                        
+                        {/* Available Certificates */}
                         {searchResults.map((cert) => {
                           const isCurrentCert = cert.serialNumber === certificate.serialNumber;
-                          const isSelectable = canSelectCertificate(cert);
                           const isExpired = isCertificateExpired(cert.validTo);
                           const isRevoked = cert.certificateStatus === 'Revoked';
+                          const isSelectable = !isCurrentCert && !isExpired && !isRevoked;
+                          const isSelected = selectedCert?.certificateIdentifier === cert.certificateIdentifier;
+                          
+                          // Skip showing the current certificate in the selection list
+                          if (isCurrentCert) return null;
                           
                           // Format dates for display
                           const validToDate = new Date(cert.validTo).toLocaleDateString();
@@ -542,84 +585,57 @@ export function CertificateRenewForm({
                             <motion.div
                               key={cert.certificateIdentifier}
                               className={cn(
-                                "relative flex items-start border rounded-md p-3",
-                                !isSelectable && "bg-gray-50 border-gray-200",
-                                isCurrentCert && "bg-gray-100 border-dashed border-gray-300",
-                                isSelectable && "hover:bg-gray-50/80",
-                                selectedCertificateId === cert.certificateIdentifier 
-                                  ? "ring-2 ring-primary border-primary bg-primary/5 shadow-sm" 
-                                  : "border-gray-200"
+                                "relative flex items-start border rounded-md p-3 cursor-pointer",
+                                !isSelectable && "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed",
+                                isSelected && "bg-blue-50 border-blue-200",
+                                isSelectable && !isSelected && "hover:bg-gray-50"
                               )}
                               variants={itemVariants}
-                              whileHover={isSelectable ? "hover" : undefined}
-                              animate={selectedCertificateId === cert.certificateIdentifier ? "selected" : "visible"}
-                              transition={{ duration: 0.2 }}
+                              whileHover={isSelectable ? { scale: 1.01 } : undefined}
+                              whileTap={isSelectable ? { scale: 0.99 } : undefined}
+                              onClick={() => isSelectable && selectCertificate(isSelected ? null : cert)}
                             >
-                              {!isCurrentCert && isSelectable && (
-                                <div className="flex items-center h-5 mt-1">
-                                  <RadioGroupItem
-                                    value={cert.certificateIdentifier}
-                                    id={cert.certificateIdentifier}
-                                    disabled={!isSelectable}
-                                    className={selectedCertificateId === cert.certificateIdentifier ? "text-primary border-primary" : ""}
-                                  />
-                                </div>
-                              )}
-                              <div className={cn(
-                                (!isCurrentCert && isSelectable) ? "ml-3 w-full" : "w-full",
-                                selectedCertificateId === cert.certificateIdentifier && "relative"
-                              )}>
-                                {selectedCertificateId === cert.certificateIdentifier && (
-                                  <div className="absolute -right-2 -top-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full shadow-sm">
-                                    Selected
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <div className={cn(
+                                      "font-medium",
+                                      isSelected ? "text-blue-700" : "text-gray-700"
+                                    )}>
+                                      Certificate {isSelected && "(Selected for Renewal)"}
+                                    </div>
+                                    <div className={cn(
+                                      "font-mono text-xs mt-0.5",
+                                      isSelected ? "text-blue-600 font-bold" : "text-gray-600"
+                                    )}>
+                                      {cert.serialNumber}
+                                    </div>
                                   </div>
-                                )}
-                                {isCurrentCert ? (
-                                  <div className="font-medium block text-gray-500">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-mono text-xs">{cert.serialNumber}</span>
-                                      <Badge variant="outline" className="bg-gray-50 text-gray-700">
-                                        Current Certificate
+                                  <div className="flex gap-1">
+                                    {isSelected && (
+                                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                        Selected
                                       </Badge>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <Label
-                                    htmlFor={cert.certificateIdentifier}
-                                    className={cn(
-                                      "font-medium block", 
-                                      !isSelectable ? "text-gray-500" : "cursor-pointer",
-                                      selectedCertificateId === cert.certificateIdentifier && "text-primary"
                                     )}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <span className={cn(
-                                        "font-mono text-xs",
-                                        selectedCertificateId === cert.certificateIdentifier && "font-bold text-primary"
-                                      )}>
-                                        {cert.serialNumber}
-                                      </span>
-                                      <div className="flex gap-1">
-                                        {cert.currentCert && (
-                                          <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
-                                            Active
-                                          </Badge>
-                                        )}
-                                        {isRevoked && (
-                                          <Badge variant="outline" className="bg-red-50 text-red-700">
-                                            Revoked
-                                          </Badge>
-                                        )}
-                                        {isExpired && (
-                                          <Badge variant="outline" className="bg-amber-50 text-amber-700">
-                                            Expired
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </Label>
-                                )}
-                                <div className="text-sm text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+                                    {cert.currentCert && (
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                        Active
+                                      </Badge>
+                                    )}
+                                    {isRevoked && (
+                                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                        Revoked
+                                      </Badge>
+                                    )}
+                                    {isExpired && (
+                                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                        Expired
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="text-sm text-muted-foreground mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
                                   <div className="flex justify-between">
                                     <span className="text-xs">Status:</span>
                                     <span className="text-xs font-medium">{cert.certificateStatus}</span>
@@ -629,7 +645,7 @@ export function CertificateRenewForm({
                                     <span className="text-xs font-medium">{validToDate}</span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-xs">Env:</span>
+                                    <span className="text-xs">Environment:</span>
                                     <span className="text-xs font-medium">{cert.environment || 'N/A'}</span>
                                   </div>
                                   <div className="flex justify-between">
@@ -637,11 +653,34 @@ export function CertificateRenewForm({
                                     <span className="text-xs font-medium">{cert.issuerCertAuthName}</span>
                                   </div>
                                 </div>
+                                
+                                {!isSelectable && (
+                                  <div className="mt-2 text-xs text-gray-500 italic">
+                                    {isRevoked ? "This certificate has been revoked and cannot be selected" : 
+                                     isExpired ? "This certificate has expired and cannot be selected" :
+                                     "This certificate cannot be selected"}
+                                  </div>
+                                )}
                               </div>
+                              
+                              {isSelectable && (
+                                <div className={cn(
+                                  "w-5 h-5 rounded-full border-2 flex-shrink-0 ml-2 mt-1",
+                                  isSelected 
+                                    ? "bg-blue-500 border-blue-600 flex items-center justify-center" 
+                                    : "border-gray-300"
+                                )}>
+                                  {isSelected && (
+                                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )}
+                                </div>
+                              )}
                             </motion.div>
                           );
                         })}
-                      </MotionRadioGroup>
+                      </motion.div>
                     ) : hasSearched ? (
                       <motion.div 
                         className="text-center py-6 text-sm text-muted-foreground"
@@ -685,18 +724,28 @@ export function CertificateRenewForm({
               </motion.div>
             )}
             
-            {selectedCertificateId && !manualSerialEntry && (
+            {selectedCert && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
+                className="mt-4 p-3 border border-blue-200 rounded-md bg-blue-50"
               >
-                <label className="block text-sm font-medium mb-1">Selected Serial Number</label>
-                <Input 
-                  value={watch('serialNumber')} 
-                  disabled
-                  className="bg-gray-50 text-gray-600 font-mono text-xs"
-                />
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-700">Selected for Renewal</h4>
+                    <p className="text-xs text-blue-600 font-mono mt-1">{selectedCert.serialNumber}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => selectCertificate(null)}
+                    className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                  >
+                    Clear
+                  </Button>
+                </div>
               </motion.div>
             )}
           </div>
