@@ -108,6 +108,12 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
   const queryClient = useQueryClient()
   const { selectedTeam } = useTeamStore()
   const [currentStep, setCurrentStep] = React.useState(1)
+  const [canNavigateToStep, setCanNavigateToStep] = React.useState<Record<number, boolean>>({
+    1: true,
+    2: false,
+    3: false,
+    4: false,
+  })
 
   // Fetch applications when selectedTeam changes
   React.useEffect(() => {
@@ -315,6 +321,37 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
       .then(() => statusArr)
   }, [processRow])
 
+  // Handle step navigation
+  const handleStepChange = React.useCallback((step: number) => {
+    if (canNavigateToStep[step]) {
+      setCurrentStep(step)
+    }
+  }, [canNavigateToStep])
+
+  // Update step navigation permissions based on state
+  React.useEffect(() => {
+    setCanNavigateToStep(prev => ({
+      1: true,
+      2: Boolean(validationResults),
+      3: Boolean(validationResults?.valid && validationResults.invalid === 0),
+      4: Boolean(showSummary),
+    }))
+  }, [validationResults, showSummary])
+
+  // Update step based on component state
+  React.useEffect(() => {
+    if (uploading) {
+      setCurrentStep(3)
+    } else if (showSummary) {
+      setCurrentStep(4)
+    } else if (validationResults) {
+      setCurrentStep(2)
+    } else {
+      setCurrentStep(1)
+    }
+  }, [uploading, showSummary, validationResults])
+
+  // Modify handleBulkUpload to properly handle the processing step
   const handleBulkUpload = React.useCallback(() => {
     if (!validationResults || !file?.file || !(file.file instanceof File)) return
     setUploading(true)
@@ -323,11 +360,13 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
     readFileAsText(file.file)
       .then(fileContent => processUpload(fileContent, validationResults))
       .then(statusArr => {
+        const hasErrors = statusArr.some(s => s.status === 'error')
         setShowSummary(true)
-        queryClient.invalidateQueries({ queryKey: ['certificates'] })
-        
-        if (onUploadSuccess && statusArr.every(s => s.status === 'success')) {
-          onUploadSuccess()
+        if (!hasErrors) {
+          queryClient.invalidateQueries({ queryKey: ['certificates'] })
+          if (onUploadSuccess) {
+            onUploadSuccess()
+          }
         }
       })
       .catch(err => {
@@ -390,30 +429,20 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
     return errors
   }
 
-  // Update step based on component state
-  React.useEffect(() => {
-    if (uploading) {
-      setCurrentStep(3)
-    } else if (showSummary) {
-      setCurrentStep(4)
-    } else if (validationResults) {
-      setCurrentStep(2)
-    } else {
-      setCurrentStep(1)
-    }
-  }, [uploading, showSummary, validationResults])
-
   return (
     <div className="w-full my-8 px-4">
       <div className="max-w-4xl mx-auto mb-8">
-        <Stepper value={currentStep} className="w-full">
+        <Stepper value={currentStep} onChange={handleStepChange} className="w-full">
           {UPLOAD_STEPS.map(({ step, title, description }) => (
             <StepperItem
               key={step}
               step={step}
               className="relative flex-1 flex-col!"
             >
-              <StepperTrigger className="flex-col gap-3 rounded">
+              <StepperTrigger 
+                className="flex-col gap-3 rounded"
+                disabled={!canNavigateToStep[step]}
+              >
                 <StepperIndicator />
                 <div className="space-y-0.5 px-2">
                   <StepperTitle>{title}</StepperTitle>
@@ -431,7 +460,8 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
       </div>
 
       <AnimatePresence mode="wait">
-        {!uploading && !showSummary && (
+        {/* Step 1: File Selection */}
+        {currentStep === 1 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -440,25 +470,15 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
             className="max-w-4xl mx-auto"
           >
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Bulk Certificate Upload</h2>
+              <h2 className="text-2xl font-semibold mb-2">Select Certificate CSV File</h2>
               <div className="text-sm text-muted-foreground mb-4">
                 <ol className="list-decimal ml-5 space-y-1">
                   <li>Download the appropriate CSV template for your certificate type.</li>
                   <li>Fill in all required fields. <span className="font-medium">Do not change the header row.</span></li>
                   <li>For <span className="font-semibold">Non Amex</span> certificates, the <span className="font-mono">validTo</span> date must be in exact format <span className="font-mono">YYYY-MM-DD</span> (e.g., <span className="font-mono">2025-05-19</span>).</li>
                   <li>Application name must match one from your team's application list.</li>
-                  <li>Upload the completed CSV file below.</li>
-                  <li>All rows will be validated before upload. Errors will be shown inline.</li>
                 </ol>
               </div>
-
-              {appError && (
-                <div className="bg-destructive/10 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-destructive">
-                    Warning: {appError}. Application name validation will be skipped.
-                  </p>
-                </div>
-              )}
 
               <div className="flex flex-col md:flex-row gap-4 items-center">
                 <Button variant="outline" onClick={() => downloadCsvTemplate(AMEX_FIELDS, 'amex-cert-template.csv')} className="flex items-center gap-2">
@@ -470,7 +490,14 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
               </div>
             </div>
 
-            {/* File upload section */}
+            {appError && (
+              <div className="bg-destructive/10 rounded-lg p-4 mb-4">
+                <p className="text-sm text-destructive">
+                  Warning: {appError}. Application name validation will be skipped.
+                </p>
+              </div>
+            )}
+
             <div
               role="button"
               onClick={openFileDialog}
@@ -498,7 +525,6 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
               </div>
             )}
 
-            {/* File list */}
             {file && (
               <div className="space-y-2 mb-4">
                 <div className="flex items-center justify-between gap-2 rounded-xl border px-4 py-2">
@@ -520,85 +546,85 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                 </div>
               </div>
             )}
+          </motion.div>
+        )}
 
-            {/* Validation results - show both valid and invalid entries */}
-            {validationResults && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4"
-              >
-                <div className="flex items-center gap-6 mb-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-sm font-medium text-green-700">Valid: {validationResults.valid}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-4 w-4 text-destructive" />
-                    <span className="text-sm font-medium text-destructive">Invalid: {validationResults.invalid}</span>
-                  </div>
-                </div>
+        {/* Step 2: Validation Results */}
+        {currentStep === 2 && validationResults && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="max-w-4xl mx-auto"
+          >
+            <div className="flex items-center gap-6 mb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium text-green-700">Valid: {validationResults.valid}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-destructive" />
+                <span className="text-sm font-medium text-destructive">Invalid: {validationResults.invalid}</span>
+              </div>
+            </div>
 
-                {validationResults.invalid > 0 && (
-                  <div className="bg-destructive/10 rounded-lg p-4 mb-4">
-                    <h3 className="font-medium text-destructive mb-1">Validation Errors Found</h3>
-                    <p className="text-sm text-destructive/90">
-                      Please fix the following errors and re-upload the file:
-                    </p>
-                  </div>
-                )}
-
-                <div className="border rounded-lg overflow-hidden">
-                  <ScrollArea className="h-[400px]">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-muted z-10">
-                        <TableRow>
-                          <TableHead className="w-20 px-3 py-2 text-left font-semibold">Row</TableHead>
-                          <TableHead className="w-24 px-3 py-2 text-left font-semibold">Status</TableHead>
-                          <TableHead className="px-3 py-2 text-left font-semibold">Details</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {validationResults.errors.map((errs, i) => (
-                          <TableRow 
-                            key={i} 
-                            className={cn(
-                              errs.length > 0 ? "bg-destructive/5" : "bg-green-50"
-                            )}
-                          >
-                            <TableCell className="px-3 py-2">{i + 2}</TableCell>
-                            <TableCell className="px-3 py-2">
-                              <div className="flex items-center gap-1.5">
-                                {errs.length > 0 ? (
-                                  <>
-                                    <XCircle className="h-4 w-4 text-destructive" />
-                                    <span className="text-destructive">Invalid</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    <span className="text-green-700">Valid</span>
-                                  </>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className={cn(
-                              "px-3 py-2",
-                              errs.length > 0 ? "text-destructive" : "text-green-700"
-                            )}>
-                              {errs.length > 0 ? errs.join('; ') : 'All fields valid'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              </motion.div>
+            {validationResults.invalid > 0 && (
+              <div className="bg-destructive/10 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-destructive mb-1">Validation Errors Found</h3>
+                <p className="text-sm text-destructive/90">
+                  Please fix the following errors and re-upload the file:
+                </p>
+              </div>
             )}
 
-            {/* Bulk upload button */}
-            {validationResults && validationResults.invalid === 0 && validationResults.valid > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-muted z-10">
+                    <TableRow>
+                      <TableHead className="w-20 px-3 py-2 text-left font-semibold">Row</TableHead>
+                      <TableHead className="w-24 px-3 py-2 text-left font-semibold">Status</TableHead>
+                      <TableHead className="px-3 py-2 text-left font-semibold">Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {validationResults.errors.map((errs, i) => (
+                      <TableRow 
+                        key={i} 
+                        className={cn(
+                          errs.length > 0 ? "bg-destructive/5" : "bg-green-50"
+                        )}
+                      >
+                        <TableCell className="px-3 py-2">{i + 2}</TableCell>
+                        <TableCell className="px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            {errs.length > 0 ? (
+                              <>
+                                <XCircle className="h-4 w-4 text-destructive" />
+                                <span className="text-destructive">Invalid</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                <span className="text-green-700">Valid</span>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className={cn(
+                          "px-3 py-2",
+                          errs.length > 0 ? "text-destructive" : "text-green-700"
+                        )}>
+                          {errs.length > 0 ? errs.join('; ') : 'All fields valid'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+
+            {validationResults.invalid === 0 && validationResults.valid > 0 && (
               <div className="mt-4">
                 <Button onClick={handleBulkUpload} disabled={uploading || processing} className="w-48">
                   {uploading ? 'Uploading...' : processing ? 'Processing...' : 'Start Bulk Upload'}
@@ -608,12 +634,13 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
           </motion.div>
         )}
 
-        {uploading && (
+        {/* Step 3: Processing */}
+        {currentStep === 3 && uploading && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="max-w-3xl mx-auto"
+            className="max-w-4xl mx-auto"
           >
             <div className="flex flex-col items-center mb-6">
               <h2 className="text-2xl font-semibold mb-4">Uploading Certificates</h2>
@@ -698,20 +725,65 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
                 </Table>
               </ScrollArea>
             </div>
+          </motion.div>
+        )}
 
-            {showSummary && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 rounded-lg bg-muted p-4"
-              >
-                <h3 className="font-medium mb-2">Upload Complete</h3>
-                <div className="space-y-1 text-sm">
-                  <p>Success: {uploadStatus.filter(s => s.status === 'success').length} / {uploadStatus.length}</p>
-                  <p>Failed: {uploadStatus.filter(s => s.status === 'error').length}</p>
+        {/* Step 4: Complete */}
+        {currentStep === 4 && showSummary && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-4xl mx-auto"
+          >
+            <div className="rounded-lg bg-muted p-6">
+              <h2 className="text-2xl font-semibold mb-4">Upload Summary</h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <span className="text-base font-medium text-green-700">
+                      Success: {uploadStatus.filter(s => s.status === 'success').length} / {uploadStatus.length}
+                    </span>
+                  </div>
+                  {uploadStatus.some(s => s.status === 'error') && (
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-5 w-5 text-destructive" />
+                      <span className="text-base font-medium text-destructive">
+                        Failed: {uploadStatus.filter(s => s.status === 'error').length}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </motion.div>
-            )}
+
+                {uploadStatus.some(s => s.status === 'error') && (
+                  <div className="mt-4">
+                    <h3 className="font-medium mb-2">Failed Uploads</h3>
+                    <div className="space-y-2">
+                      {uploadStatus.map((status, index) => (
+                        status.status === 'error' && (
+                          <div key={index} className="text-sm text-destructive">
+                            Row {index + 2}: {status.message}
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6">
+                  <Button onClick={() => {
+                    setCurrentStep(1)
+                    setValidationResults(null)
+                    setUploading(false)
+                    setShowSummary(false)
+                    setUploadStatus([])
+                    removeFile(file?.id || '')
+                  }}>
+                    Upload Another File
+                  </Button>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

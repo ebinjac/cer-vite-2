@@ -13,7 +13,7 @@ const StepperContext = React.createContext<StepperContextValue>({
   onChange: () => {},
 })
 
-type StepperProps = React.HTMLAttributes<HTMLDivElement> & {
+type StepperProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> & {
   value?: number
   defaultValue?: number
   onChange?: (value: number) => void
