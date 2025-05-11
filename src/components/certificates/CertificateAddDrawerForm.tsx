@@ -114,19 +114,35 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
   }, [appOpen, selectedTeam])
 
   async function onSubmit(values: CertificateAddFormValues) {
-    // Prepare payload
-    const payload: any = {
-      ...values,
-      isAmexCert: values.isAmexCert === 'Yes' ? 'Yes' : 'No',
-      validTo: values.isAmexCert === 'No' && values.validTo ? values.validTo.toISOString().slice(0, 10) : undefined,
+    // Prepare payload with all schema fields, using empty string for missing values
+    const allFields = [
+      'commonName',
+      'serialNumber',
+      'centralID',
+      'applicationName',
+      'isAmexCert',
+      'validTo',
+      'environment',
+      'comment',
+      'serverName',
+      'keystorePath',
+      'uri',
+    ]
+    const payload: any = {}
+    for (const key of allFields) {
+      if (key === 'validTo') {
+        payload.validTo = values.isAmexCert === 'No' && values.validTo ? values.validTo.toISOString().slice(0, 10) : ''
+      } else if (key === 'isAmexCert') {
+        payload.isAmexCert = values.isAmexCert === 'Yes' ? 'Yes' : 'No'
+      } else {
+        payload[key] = (values as any)[key] ?? ''
+      }
     }
-    if (payload.isAmexCert === 'Yes') delete payload.validTo
-    if (payload.isAmexCert === 'Yes') delete payload.environment
-    // Remove empty optional fields
+    // Remove additional fields if showMore is false
     if (!showMore) {
-      delete payload.serverName
-      delete payload.keystorePath
-      delete payload.uri
+      payload.serverName = ''
+      payload.keystorePath = ''
+      payload.uri = ''
     }
     try {
       const res = await fetch(CERTIFICATE_SAVE_API, {
