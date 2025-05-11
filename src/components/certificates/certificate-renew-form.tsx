@@ -80,7 +80,11 @@ const itemVariants = {
   hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0 },
   hover: { scale: 1.02, transition: { duration: 0.2 } },
-  selected: { scale: 1.02, boxShadow: "0 0 0 2px #3b82f6" }
+  selected: { 
+    scale: 1.02, 
+    boxShadow: "0 0 0 2px #3b82f6",
+    backgroundColor: "rgba(59, 130, 246, 0.05)"
+  }
 }
 
 // Motion components
@@ -536,8 +540,10 @@ export function CertificateRenewForm({
                               className={cn(
                                 "relative flex items-start border rounded-md p-3",
                                 !isSelectable && "bg-gray-50 border-gray-200",
-                                isSelectable && "hover:bg-gray-50",
-                                selectedCertificateId === cert.certificateIdentifier && "ring-2 ring-primary"
+                                isSelectable && "hover:bg-gray-50/80",
+                                selectedCertificateId === cert.certificateIdentifier 
+                                  ? "ring-2 ring-primary border-primary bg-primary/5" 
+                                  : "border-gray-200"
                               )}
                               variants={itemVariants}
                               whileHover={isSelectable ? "hover" : undefined}
@@ -549,17 +555,33 @@ export function CertificateRenewForm({
                                   value={cert.certificateIdentifier}
                                   id={cert.certificateIdentifier}
                                   disabled={!isSelectable}
+                                  className={selectedCertificateId === cert.certificateIdentifier ? "text-primary border-primary" : ""}
                                 />
                               </div>
-                              <div className="ml-3 w-full">
+                              <div className={cn(
+                                "ml-3 w-full",
+                                selectedCertificateId === cert.certificateIdentifier && "relative"
+                              )}>
+                                {selectedCertificateId === cert.certificateIdentifier && (
+                                  <div className="absolute -right-2 -top-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
+                                    Selected
+                                  </div>
+                                )}
                                 <Label
                                   htmlFor={cert.certificateIdentifier}
-                                  className={cn("font-medium block", 
-                                    !isSelectable ? "text-gray-500" : "cursor-pointer"
+                                  className={cn(
+                                    "font-medium block", 
+                                    !isSelectable ? "text-gray-500" : "cursor-pointer",
+                                    selectedCertificateId === cert.certificateIdentifier && "text-primary"
                                   )}
                                 >
                                   <div className="flex items-center justify-between">
-                                    <span className="font-mono text-xs">{cert.serialNumber}</span>
+                                    <span className={cn(
+                                      "font-mono text-xs",
+                                      selectedCertificateId === cert.certificateIdentifier && "font-bold text-primary"
+                                    )}>
+                                      {cert.serialNumber}
+                                    </span>
                                     <div className="flex gap-1">
                                       {cert.currentCert && (
                                         <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
