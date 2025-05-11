@@ -1,10 +1,13 @@
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { Download, UploadCloud, CheckCircle2, XCircle, PaperclipIcon, AlertCircleIcon, XIcon } from 'lucide-react'
+import { Download, UploadCloud, CheckCircle2, XCircle, PaperclipIcon, AlertCircleIcon, XIcon, Loader2 } from 'lucide-react'
 import { useFileUpload, formatBytes } from '@/hooks/use-file-upload'
 import type { FileWithPreview } from '@/hooks/use-file-upload'
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from '@/components/ui/table'
+import { CERTIFICATE_SAVE_API } from '@/lib/api-endpoints'
+import { useTeamStore } from '@/store/team-store'
+import { useQueryClient } from '@tanstack/react-query'
 
 
 const AMEX_FIELDS = [
@@ -80,6 +83,11 @@ function validateRow (row: Record<string, string>, isAmex: boolean): string[] {
 export function BulkCertificateUpload ({ onUploadSuccess }: { onUploadSuccess?: () => void }) {
   const [validationResults, setValidationResults] = React.useState<null | { valid: number, invalid: number, errors: string[][] }> (null)
   const [processing, setProcessing] = React.useState(false)
+  const [uploading, setUploading] = React.useState(false)
+  const [uploadStatus, setUploadStatus] = React.useState<{ status: 'idle' | 'loading' | 'success' | 'error', message?: string }[]>([])
+  const [showSummary, setShowSummary] = React.useState(false)
+  const queryClient = useQueryClient()
+  const { selectedTeam } = useTeamStore()
   const [
     { files, isDragging, errors: fileErrors },
     {
@@ -142,6 +150,79 @@ export function BulkCertificateUpload ({ onUploadSuccess }: { onUploadSuccess?: 
   })
 
   const file = files[0]
+
+  // Helper to build payload for API
+  function buildPayload(row: Record<string, string>, isAmex: boolean): any {
+    const allFields = [
+      'commonName',
+      'serialNumber',
+      'centralID',
+      'applicationName',
+      'isAmexCert',
+      'validTo',
+      'environment',
+      'comment',
+      'serverName',
+      'keystorePath',
+      'uri',
+    ]
+    const payload: any = {}
+    for (const key of allFields) {
+      if (key === 'validTo') {
+        payload.validTo = !isAmex && row.validTo ? row.validTo : ''
+      } else if (key === 'isAmexCert') {
+        payload.isAmexCert = isAmex ? 'Yes' : 'No'
+      } else {
+        payload[key] = row[key] ?? ''
+      }
+    }
+    payload.renewingTeamName = selectedTeam || ''
+    // For bulk, always send all fields (no showMore logic)
+    return payload
+  }
+
+  async function handleBulkUpload () {
+    if (!validationResults || !file) return
+    setUploading(true)
+    setShowSummary(false)
+    // Parse file again to get rows and headers
+    const fileObj = file.file as File
+    const text = await fileObj.text()
+    const { headers, rows } = parseCsv(text)
+    const isAmex = headers.length === AMEX_FIELDS.length && AMEX_FIELDS.every((f, i) => headers[i] === f)
+    // Only process valid rows
+    const validRows = rows.filter((_, i) => validationResults.errors[i].length === 0)
+    const statusArr: { status: 'idle' | 'loading' | 'success' | 'error', message?: string }[] = validRows.map(() => ({ status: 'idle' }))
+    setUploadStatus(statusArr)
+    for (let i = 0; i < validRows.length; i++) {
+      statusArr[i] = { status: 'loading' }
+      setUploadStatus([...statusArr])
+      const rowArr = validRows[i]
+      const row: Record<string, string> = {}
+      headers.forEach((h, idx) => { row[h] = rowArr[idx] || '' })
+      const payload = buildPayload(row, isAmex)
+      try {
+        const res = await fetch(CERTIFICATE_SAVE_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          let errorText = ''
+          try { errorText = await res.text() } catch {}
+          throw new Error(errorText || `Failed: ${res.status} ${res.statusText}`)
+        }
+        statusArr[i] = { status: 'success' }
+      } catch (err: any) {
+        statusArr[i] = { status: 'error', message: err?.message || 'Unknown error' }
+      }
+      setUploadStatus([...statusArr])
+    }
+    setUploading(false)
+    setShowSummary(true)
+    queryClient.invalidateQueries({ queryKey: ['certificates'] })
+    if (onUploadSuccess) onUploadSuccess()
+  }
 
   return (
     <div className="w-full my-8 px-4">
@@ -237,7 +318,7 @@ export function BulkCertificateUpload ({ onUploadSuccess }: { onUploadSuccess?: 
                 <span className="text-green-700 flex items-center gap-1"><CheckCircle2 className="h-4 w-4" /> Valid rows: {validationResults.valid}</span>
                 <span className="text-red-700 flex items-center gap-1"><XCircle className="h-4 w-4" /> Invalid rows: {validationResults.invalid}</span>
               </div>
-              <div className="overflow-x-auto rounded border border-border/40 bg-muted/50">
+              <div className="overflow-x-auto rounded border border-border/40 bg-muted/50 mb-4">
                 <Table className="min-w-full text-xs">
                   <TableHeader>
                     <TableRow className="bg-muted">
@@ -262,6 +343,58 @@ export function BulkCertificateUpload ({ onUploadSuccess }: { onUploadSuccess?: 
                   </TableBody>
                 </Table>
               </div>
+              {/* Bulk upload button and per-row feedback */}
+              {validationResults.invalid === 0 && validationResults.valid > 0 && (
+                <div className="flex flex-col items-center gap-4 mt-4">
+                  <Button onClick={handleBulkUpload} disabled={uploading} className="w-48">
+                    {uploading ? 'Uploading...' : 'Start Bulk Upload'}
+                  </Button>
+                  {uploading && (
+                    <div className="w-full max-w-2xl">
+                      <Table className="min-w-full text-xs">
+                        <TableHeader>
+                          <TableRow className="bg-muted">
+                            <TableHead className="px-3 py-2 text-left font-semibold">Row</TableHead>
+                            <TableHead className="px-3 py-2 text-left font-semibold">Status</TableHead>
+                            <TableHead className="px-3 py-2 text-left font-semibold">API Message</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {uploadStatus.map((stat, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="px-3 py-2">{i + 2}</TableCell>
+                              <TableCell className="px-3 py-2 flex items-center gap-1">
+                                {stat.status === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                                {stat.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                {stat.status === 'error' && <XCircle className="h-4 w-4 text-red-500" />}
+                                {stat.status.charAt(0).toUpperCase() + stat.status.slice(1)}
+                              </TableCell>
+                              <TableCell className="px-3 py-2 text-xs">
+                                {stat.status === 'error' ? (
+                                  <span className="text-red-600">{stat.message}</span>
+                                ) : stat.status === 'success' ? (
+                                  <span className="text-green-700">—</span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  {showSummary && (
+                    <div className="w-full max-w-2xl mt-4">
+                      <div className="rounded bg-muted p-4 text-sm flex flex-col gap-2">
+                        <span className="font-medium">Bulk upload complete.</span>
+                        <span>Success: {uploadStatus.filter(s => s.status === 'success').length} / {uploadStatus.length}</span>
+                        <span>Failed: {uploadStatus.filter(s => s.status === 'error').length}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
