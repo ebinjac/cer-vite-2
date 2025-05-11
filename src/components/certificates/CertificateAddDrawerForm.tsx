@@ -93,10 +93,18 @@ export function CertificateAddDrawerForm({ onSuccess }: { onSuccess?: () => void
     fetch(APPLICATION_LIST_API(selectedTeam))
       .then(async res => {
         if (!res.ok) throw new Error('Failed to fetch applications')
-        return res.json()
-      })
-      .then((data: string[]) => {
-        setAppOptions(data)
+        const text = await res.text()
+        let apps: string[] = []
+        try {
+          apps = JSON.parse(text)
+        } catch {
+          apps = text
+            .replace(/\[|\]/g, '')
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean)
+        }
+        setAppOptions(apps)
         setAppLoading(false)
       })
       .catch(err => {
