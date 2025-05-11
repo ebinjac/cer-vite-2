@@ -164,6 +164,10 @@ export function CertificateRenewForm({
     setIsSearching(true)
     setApiError(null)
     
+    // Clear previous selection when refreshing
+    setValue('selectedCertificateId', '')
+    setValue('serialNumber', '')
+    
     try {
       const res = await fetch(CERTIFICATE_SEARCH_API(certificate.commonName))
       
@@ -540,9 +544,10 @@ export function CertificateRenewForm({
                               className={cn(
                                 "relative flex items-start border rounded-md p-3",
                                 !isSelectable && "bg-gray-50 border-gray-200",
+                                isCurrentCert && "bg-gray-100 border-dashed border-gray-300",
                                 isSelectable && "hover:bg-gray-50/80",
                                 selectedCertificateId === cert.certificateIdentifier 
-                                  ? "ring-2 ring-primary border-primary bg-primary/5" 
+                                  ? "ring-2 ring-primary border-primary bg-primary/5 shadow-sm" 
                                   : "border-gray-200"
                               )}
                               variants={itemVariants}
@@ -550,62 +555,70 @@ export function CertificateRenewForm({
                               animate={selectedCertificateId === cert.certificateIdentifier ? "selected" : "visible"}
                               transition={{ duration: 0.2 }}
                             >
-                              <div className="flex items-center h-5 mt-1">
-                                <RadioGroupItem
-                                  value={cert.certificateIdentifier}
-                                  id={cert.certificateIdentifier}
-                                  disabled={!isSelectable}
-                                  className={selectedCertificateId === cert.certificateIdentifier ? "text-primary border-primary" : ""}
-                                />
-                              </div>
+                              {!isCurrentCert && isSelectable && (
+                                <div className="flex items-center h-5 mt-1">
+                                  <RadioGroupItem
+                                    value={cert.certificateIdentifier}
+                                    id={cert.certificateIdentifier}
+                                    disabled={!isSelectable}
+                                    className={selectedCertificateId === cert.certificateIdentifier ? "text-primary border-primary" : ""}
+                                  />
+                                </div>
+                              )}
                               <div className={cn(
-                                "ml-3 w-full",
+                                (!isCurrentCert && isSelectable) ? "ml-3 w-full" : "w-full",
                                 selectedCertificateId === cert.certificateIdentifier && "relative"
                               )}>
                                 {selectedCertificateId === cert.certificateIdentifier && (
-                                  <div className="absolute -right-2 -top-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
+                                  <div className="absolute -right-2 -top-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full shadow-sm">
                                     Selected
                                   </div>
                                 )}
-                                <Label
-                                  htmlFor={cert.certificateIdentifier}
-                                  className={cn(
-                                    "font-medium block", 
-                                    !isSelectable ? "text-gray-500" : "cursor-pointer",
-                                    selectedCertificateId === cert.certificateIdentifier && "text-primary"
-                                  )}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className={cn(
-                                      "font-mono text-xs",
-                                      selectedCertificateId === cert.certificateIdentifier && "font-bold text-primary"
-                                    )}>
-                                      {cert.serialNumber}
-                                    </span>
-                                    <div className="flex gap-1">
-                                      {cert.currentCert && (
-                                        <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
-                                          Active
-                                        </Badge>
-                                      )}
-                                      {isCurrentCert && (
-                                        <Badge variant="outline" className="bg-gray-50 text-gray-700">
-                                          Current
-                                        </Badge>
-                                      )}
-                                      {isRevoked && (
-                                        <Badge variant="outline" className="bg-red-50 text-red-700">
-                                          Revoked
-                                        </Badge>
-                                      )}
-                                      {isExpired && (
-                                        <Badge variant="outline" className="bg-amber-50 text-amber-700">
-                                          Expired
-                                        </Badge>
-                                      )}
+                                {isCurrentCert ? (
+                                  <div className="font-medium block text-gray-500">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-mono text-xs">{cert.serialNumber}</span>
+                                      <Badge variant="outline" className="bg-gray-50 text-gray-700">
+                                        Current Certificate
+                                      </Badge>
                                     </div>
                                   </div>
-                                </Label>
+                                ) : (
+                                  <Label
+                                    htmlFor={cert.certificateIdentifier}
+                                    className={cn(
+                                      "font-medium block", 
+                                      !isSelectable ? "text-gray-500" : "cursor-pointer",
+                                      selectedCertificateId === cert.certificateIdentifier && "text-primary"
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className={cn(
+                                        "font-mono text-xs",
+                                        selectedCertificateId === cert.certificateIdentifier && "font-bold text-primary"
+                                      )}>
+                                        {cert.serialNumber}
+                                      </span>
+                                      <div className="flex gap-1">
+                                        {cert.currentCert && (
+                                          <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
+                                            Active
+                                          </Badge>
+                                        )}
+                                        {isRevoked && (
+                                          <Badge variant="outline" className="bg-red-50 text-red-700">
+                                            Revoked
+                                          </Badge>
+                                        )}
+                                        {isExpired && (
+                                          <Badge variant="outline" className="bg-amber-50 text-amber-700">
+                                            Expired
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </Label>
+                                )}
                                 <div className="text-sm text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
                                   <div className="flex justify-between">
                                     <span className="text-xs">Status:</span>
