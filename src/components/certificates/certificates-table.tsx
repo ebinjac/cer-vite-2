@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table'
-import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, Eye, History, RefreshCw, Pencil, Trash2, MoreVertical } from 'lucide-react'
+import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, Eye, History, RefreshCw, Pencil, Trash2, MoreVertical, AlertTriangle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { motion, AnimatePresence } from 'framer-motion'
@@ -74,6 +74,11 @@ import { BulkCertificateUpload } from './BulkCertificateUpload'
 import { CertificateDetailsModal } from './certificate-details-modal'
 import { CertificateUpdateDrawer } from './certificate-update-drawer'
 import { CertificateRenewDrawer } from './certificate-renew-drawer'
+import { CertificateDeleteDialog } from './certificate-delete-dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog'
+import { CERTIFICATE_DELETE_API } from '@/lib/api-endpoints'
+import { toast } from 'sonner'
+import { CertificateDeletionStatus, type DeletionResult } from './certificate-deletion-status'
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -815,6 +820,195 @@ function MotionCheckbox({ checked, onChange, label }: {
   );
 }
 
+// Update the BulkDeleteDialog component
+function BulkDeleteDialog({ 
+  certificates, 
+  open, 
+  onOpenChange, 
+  onDeleteComplete 
+}: { 
+  certificates: Certificate[], 
+  open: boolean, 
+  onOpenChange: (open: boolean) => void,
+  onDeleteComplete: () => void
+}) {
+  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [currentIndex, setCurrentIndex] = React.useState(0)
+  const [results, setResults] = React.useState<DeletionResult[]>([])
+  const [isCompleted, setIsCompleted] = React.useState(false)
+  const totalCertificates = certificates.length
+
+  // Reset state when dialog opens/closes
+  React.useEffect(() => {
+    if (!open) {
+      setError(null)
+      setIsDeleting(false)
+      setCurrentIndex(0)
+      setResults([])
+      setIsCompleted(false)
+    }
+  }, [open])
+
+  if (!certificates.length) return null
+
+  const handleBulkDelete = async () => {
+    setIsDeleting(true)
+    setError(null)
+    setCurrentIndex(0)
+    setResults([])
+    setIsCompleted(false)
+
+    try {
+      let newResults: DeletionResult[] = [];
+
+      // Process certificates one by one
+      for (let i = 0; i < certificates.length; i++) {
+        const certificate = certificates[i];
+        
+        if (!certificate.commonName) {
+          newResults.push({
+            commonName: certificate.serialNumber || 'Unknown',
+            success: false,
+            error: 'Certificate missing common name'
+          });
+          setResults([...newResults]);
+          setCurrentIndex(i + 1);
+          continue;
+        }
+
+        try {
+          const res = await fetch(CERTIFICATE_DELETE_API(certificate.commonName), {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          let errorText = '';
+          if (!res.ok) {
+            try {
+              errorText = await res.text();
+            } catch {}
+          }
+
+          newResults.push({
+            commonName: certificate.commonName,
+            success: res.ok,
+            error: !res.ok ? (errorText || `Failed with status: ${res.status}`) : undefined,
+            statusCode: res.status
+          });
+          
+          setResults([...newResults]);
+          setCurrentIndex(i + 1);
+        } catch (err: any) {
+          newResults.push({
+            commonName: certificate.commonName,
+            success: false,
+            error: err?.message || 'Network error occurred'
+          });
+          setResults([...newResults]);
+          setCurrentIndex(i + 1);
+        }
+      }
+
+      setIsCompleted(true);
+      
+      // Show summary toast
+      const successCount = newResults.filter(r => r.success).length;
+      if (successCount > 0) {
+        toast.success(`${successCount} of ${totalCertificates} certificates deleted`, {
+          description: successCount < totalCertificates ? 'Some certificates could not be deleted.' : undefined
+        });
+      } else {
+        toast.error('Failed to delete certificates', {
+          description: 'None of the selected certificates could be deleted.'
+        });
+      }
+      
+      // Only auto-close on complete success
+      if (successCount === totalCertificates) {
+        setTimeout(() => {
+          onOpenChange(false);
+          onDeleteComplete();
+        }, 1500);
+      }
+    } catch (err: any) {
+      let message = 'An error occurred during bulk deletion.';
+      if (err?.message) {
+        message = err.message;
+      }
+      setError(message);
+      setIsCompleted(true);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={(isOpen) => {
+      // Only allow closing if not actively deleting
+      if (!isDeleting) {
+        onOpenChange(isOpen);
+        if (!isOpen && isCompleted) {
+          onDeleteComplete();
+        }
+      }
+    }}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-destructive flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Bulk Delete Certificates
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-4">
+            {!isDeleting && !isCompleted && (
+              <p>
+                Are you sure you want to delete {certificates.length} selected certificates? This action cannot be undone.
+              </p>
+            )}
+            
+            <CertificateDeletionStatus
+              results={results}
+              isCompleted={isCompleted}
+              inProgress={isDeleting}
+              currentIndex={currentIndex}
+              totalCount={totalCertificates}
+            />
+            
+            {error && (
+              <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>
+            {isCompleted ? 'Close' : 'Cancel'}
+          </AlertDialogCancel>
+          {!isCompleted && (
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete} 
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                `Delete ${certificates.length} Certificates`
+              )}
+            </Button>
+          )}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 export function CertificatesTable({ data, isLoading, isError, error, teamName, onCertificateAdded }: CertificateTableProps & { onCertificateAdded?: () => void }) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -866,7 +1060,9 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
   const [bulkDrawerOpen, setBulkDrawerOpen] = React.useState(false)
   const [updateDrawerOpen, setUpdateDrawerOpen] = React.useState(false)
   const [renewDrawerOpen, setRenewDrawerOpen] = React.useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [selectedCertificate, setSelectedCertificate] = React.useState<Certificate | null>(null)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -1698,7 +1894,13 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
                   History
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    setSelectedCertificate(certificate)
+                    setDeleteDialogOpen(true)
+                  }}
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
@@ -1913,6 +2115,30 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
       onCertificateAdded()
     }
   }, [onCertificateAdded])
+
+  // Add a handler for certificate deletion
+  const handleCertificateDeleted = React.useCallback(() => {
+    if (onCertificateAdded) {
+      onCertificateAdded()
+    }
+  }, [onCertificateAdded])
+
+  // Get selected certificates
+  const getSelectedCertificates = React.useCallback(() => {
+    const selectedRows = table.getFilteredSelectedRowModel().rows
+    return selectedRows.map(row => row.original)
+  }, [table])
+
+  // Add a handler for bulk certificate deletion
+  const handleBulkDeleteComplete = React.useCallback(() => {
+    // Clear selection
+    table.resetRowSelection()
+    
+    // Refresh data
+    if (onCertificateAdded) {
+      onCertificateAdded()
+    }
+  }, [onCertificateAdded, table])
 
   if (isLoading) return (
     <MotionCard 
@@ -2485,6 +2711,17 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
               >
                 <span>{table.getFilteredSelectedRowModel().rows.length} row(s) selected</span>
                 <Separator orientation="vertical" className="h-4" />
+                <MotionButton
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="h-8 px-2 py-0"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete Selected
+                </MotionButton>
               </motion.div>
             )}
           </AnimatePresence>
@@ -2591,6 +2828,22 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
         open={renewDrawerOpen}
         onOpenChange={setRenewDrawerOpen}
         onCertificateRenewed={handleCertificateRenewed}
+      />
+      
+      {/* Add the delete dialog at the end */}
+      <CertificateDeleteDialog
+        certificate={selectedCertificate}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onCertificateDeleted={handleCertificateDeleted}
+      />
+      
+      {/* Add the bulk delete dialog */}
+      <BulkDeleteDialog
+        certificates={getSelectedCertificates()}
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        onDeleteComplete={handleBulkDeleteComplete}
       />
     </MotionCard>
   )

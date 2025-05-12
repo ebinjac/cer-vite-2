@@ -287,11 +287,9 @@ export function CertificateRenewForm({
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
-        oldSerialNumber: certificate.serialNumber,
         expiryDate: isNonAmexCert && values.expiryDate 
           ? format(values.expiryDate, 'yyyy-MM-dd') 
           : undefined,
-        isAmexCert: certificate.isAmexCert,
         selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
           ? selectedCert.certificateIdentifier 
           : undefined,
