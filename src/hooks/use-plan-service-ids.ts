@@ -177,18 +177,7 @@ export const usePlanServiceIds = () => {
           }
         ];
         
-        // Store the teams in the team store if available
-        if (mockData.length > 0) {
-          const teams = [...new Set(mockData
-            .map(svc => svc.renewingTeamName)
-            .filter((team): team is string => Boolean(team))
-            .sort()
-          )];
-          
-          if (teams.length > 0) {
-            useTeamStore.getState().setAvailableTeams(teams);
-          }
-        }
+        // We're not setting the availableTeams anymore to avoid modifying the team-switcher behavior
         
         setData(mockData);
       } catch (err) {

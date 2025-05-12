@@ -127,18 +127,7 @@ export const usePlanCertificates = () => {
         
         const certificateData = await response.json() as PlanCertificate[];
         
-        // Store the teams in the team store if available
-        if (certificateData.length > 0) {
-          const teams = [...new Set(certificateData
-            .map(cert => cert.renewingTeamName)
-            .filter((team): team is string => Boolean(team))
-            .sort()
-          )];
-          
-          if (teams.length > 0) {
-            useTeamStore.getState().setAvailableTeams(teams);
-          }
-        }
+        // We're not setting the availableTeams anymore to avoid modifying the team-switcher behavior
         
         setData(certificateData);
       } catch (err) {
