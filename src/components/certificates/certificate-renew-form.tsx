@@ -395,20 +395,30 @@ export function CertificateRenewForm({
           : `Successfully renewed certificate ${certificate.commonName}.`;
       }
       
-      toast.success('Certificate renewed successfully!', { 
-        description: successMessage,
-        duration: 5000
-      })
-      
       // Set renewing state to false as the process is complete
       setIsRenewing(false)
       
-      // Trigger certificate data refetch, then close drawer and handle other success actions
+      // First trigger certificate data refetch
       if (onCertificateRenewed) {
-        await onCertificateRenewed() // Wait for data refetch to complete
+        try {
+          await onCertificateRenewed(); // Wait for data refetch to complete
+        } catch (error) {
+          console.error('Error refetching certificate data:', error);
+        }
       }
       
-      if (onSuccess) onSuccess() // This typically closes the drawer
+      // Then close the drawer
+      if (onSuccess) {
+        onSuccess(); // This typically closes the drawer
+      }
+      
+      // Show toast after drawer is closed to ensure it's visible
+      setTimeout(() => {
+        toast.success('Certificate renewed successfully!', { 
+          description: successMessage,
+          duration: 5000
+        });
+      }, 100);
     } catch (err: any) {
       // Set renewing state to false if there's an error
       setIsRenewing(false)
