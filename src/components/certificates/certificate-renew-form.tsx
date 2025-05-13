@@ -110,6 +110,7 @@ export function CertificateRenewForm({
   const [manualSerialEntry, setManualSerialEntry] = React.useState(false)
   const [selectedCert, setSelectedCert] = React.useState<CertSearchResult | null>(null)
   const [showMoreOptions, setShowMoreOptions] = React.useState(false)
+  const [isRenewing, setIsRenewing] = React.useState(false)
   
   // Set default expiry date to 1 year from now
   const defaultExpiryDate = React.useMemo(() => {
@@ -279,6 +280,9 @@ export function CertificateRenewForm({
     }
     
     try {
+      // Set renewing state to true to prevent drawer closure
+      setIsRenewing(true)
+      
       // Get current date in YYYY-MM-DD format for renewalDate
       const today = new Date()
       const renewalDate = format(today, 'yyyy-MM-dd')
@@ -383,13 +387,32 @@ export function CertificateRenewForm({
       // Parse final response if needed
       const completeData = await completeRes.json()
       
+      // Update success message to include the message from the API if available
+      let successMessage = `The certificate has been renewed with the new serial number ${values.serialNumber}.`
+      if (completeData?.message) {
+        successMessage = completeData.message.includes(certificate.commonName) 
+          ? completeData.message 
+          : `Successfully renewed certificate ${certificate.commonName}.`;
+      }
+      
       toast.success('Certificate renewed successfully!', { 
-        description: `The certificate has been renewed with the new serial number ${values.serialNumber}.${completeData?.message ? ` ${completeData.message}` : ''}` 
+        description: successMessage,
+        duration: 5000
       })
       
-      if (onSuccess) onSuccess()
-      if (onCertificateRenewed) onCertificateRenewed()
+      // Set renewing state to false as the process is complete
+      setIsRenewing(false)
+      
+      // Trigger certificate data refetch, then close drawer and handle other success actions
+      if (onCertificateRenewed) {
+        await onCertificateRenewed() // Wait for data refetch to complete
+      }
+      
+      if (onSuccess) onSuccess() // This typically closes the drawer
     } catch (err: any) {
+      // Set renewing state to false if there's an error
+      setIsRenewing(false)
+      
       let message = 'An error occurred while renewing the certificate.'
       if (err?.name === 'TypeError' && err?.message === 'Failed to fetch') {
         message = 'Network error: Unable to reach the server. Please check your connection.'
@@ -950,13 +973,13 @@ export function CertificateRenewForm({
         >
           <Button 
             type="submit" 
-            disabled={isSubmitting} 
+            disabled={isSubmitting || isRenewing} 
             className="bg-green-600 hover:bg-green-700"
           >
-            {isSubmitting ? (
+            {isSubmitting || isRenewing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Renewing Certificate...
+                {isRenewing ? 'Renewing Certificate...' : 'Processing...'}
               </>
             ) : (
               'Renew Certificate'
@@ -968,12 +991,22 @@ export function CertificateRenewForm({
           whileTap={{ scale: 0.95 }}
         >
           <DrawerClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={isSubmitting || isRenewing}>
               Cancel
             </Button>
           </DrawerClose>
         </motion.div>
       </motion.div>
+      
+      {/* Overlay to prevent drawer closure during renewal */}
+      {isRenewing && (
+        <div className="fixed inset-0 bg-black/5 z-50 flex items-center justify-center pointer-events-auto">
+          <div className="bg-white rounded-lg p-4 shadow-xl flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span>Certificate renewal in progress...</span>
+          </div>
+        </div>
+      )}
     </form>
   )
 } 
