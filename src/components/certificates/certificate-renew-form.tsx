@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useTeamStore } from '@/store/team-store'
 
 // Define form value types
 interface RenewalFormValues {
@@ -282,8 +283,12 @@ export function CertificateRenewForm({
       const today = new Date()
       const renewalDate = format(today, 'yyyy-MM-dd')
       
-      // Prepare payload with all required fields for the renewal API
-      const payload = {
+      // Get renewingTeamName from team store
+      const { selectedTeam } = useTeamStore.getState()
+      const renewingTeamName = selectedTeam || certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security"
+      
+      // Step 1: First API call to initiate renewal
+      const initiatePayload = {
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
@@ -293,42 +298,88 @@ export function CertificateRenewForm({
         selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
           ? selectedCert.certificateIdentifier 
           : undefined,
-        // Additional required fields for the /api/v1/renewal endpoint
-        checklist: "1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1",
-        comment: values.comment || "Renewed the certificate",
-        currentStatus: "completed",
-        id: certificate.id || 0,
+        // Required fields for first step with initial values
+        checklist: "0,0,0,0,0,0,0,0,0,0,0,0", // Initial checklist with all items unchecked
+        comment: values.comment || "", // User comments for renewal
+        currentStatus: "pending", // Initial status is always "pending"
         renewalDate: renewalDate,
         renewedBy: "", // Should be populated from user context in a real app
-        renewingTeamName: certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security",
-        underRenewal: true,
+        renewingTeamName: renewingTeamName,
         validTo: certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : undefined
       }
       
-      console.log('Certificate renewal payload:', payload)
+      console.log('Certificate renewal initiation payload:', initiatePayload)
       
-      // Send the data to the renewal API endpoint
-      const res = await fetch(CERTIFICATE_RENEW_API, {
+      setApiError(null)
+      
+      // Send the first request to initiate renewal
+      const initiateRes = await fetch(CERTIFICATE_RENEW_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(initiatePayload)
       })
       
-      if (!res.ok) {
+      if (!initiateRes.ok) {
         let errorText = ''
         try {
-          errorText = await res.text()
+          errorText = await initiateRes.text()
         } catch {}
-        throw new Error(errorText || `Failed to renew certificate: ${res.status} ${res.statusText}`)
+        throw new Error(errorText || `Failed to initiate certificate renewal: ${initiateRes.status} ${initiateRes.statusText}`)
       }
       
-      // Parse response if needed
-      const responseData = await res.json()
+      // Parse response to get renewId for second step
+      const initiateData = await initiateRes.json()
+      
+      if (!initiateData.renewId) {
+        throw new Error('Failed to get renewal ID from server response')
+      }
+      
+      console.log('Renewal initiated successfully with ID:', initiateData.renewId)
+      
+      // Step 2: Second API call to complete renewal
+      const completePayload = {
+        id: initiateData.renewId, // The renewId from the first API response
+        commonName: certificate.commonName,
+        serialNumber: values.serialNumber,
+        changeNumber: values.changeNumber || '',
+        renewalDate: renewalDate,
+        renewedBy: "", // Should be populated from user context in a real app
+        currentStatus: "completed", // Always set to completed for second call
+        validTo: isNonAmexCert && values.expiryDate 
+          ? format(values.expiryDate, 'yyyy-MM-dd') 
+          : (certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : ''),
+        checklist: "1,1,1,1,1,1,1,1,1,1,1,1", // All checklist items marked as completed
+        underRenewal: true,
+        renewingTeamName: renewingTeamName,
+        comment: values.comment || "Certificate renewal completed"
+      }
+      
+      console.log('Certificate renewal completion payload:', completePayload)
+      
+      // Send the second request to complete renewal
+      const completeRes = await fetch(CERTIFICATE_RENEW_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(completePayload)
+      })
+      
+      if (!completeRes.ok) {
+        let errorText = ''
+        try {
+          errorText = await completeRes.text()
+        } catch {}
+        throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
+      }
+      
+      // Parse final response if needed
+      const completeData = await completeRes.json()
       
       toast.success('Certificate renewed successfully!', { 
-        description: `The certificate has been renewed with the new serial number ${values.serialNumber}.${responseData?.message ? ` ${responseData.message}` : ''}` 
+        description: `The certificate has been renewed with the new serial number ${values.serialNumber}.${completeData?.message ? ` ${completeData.message}` : ''}` 
       })
       
       if (onSuccess) onSuccess()
