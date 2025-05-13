@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import type { SubmitHandler } from 'react-hook-form'
@@ -21,6 +23,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useTeamStore } from '@/store/team-store'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCertificates } from '@/hooks/use-certificates'
+import { useNavigate } from '@tanstack/react-router'
 
 // Define form value types
 interface RenewalFormValues {
@@ -97,7 +100,7 @@ const itemVariants = {
 const MotionAlert = motion(Alert)
 const MotionRadioGroup = motion(RadioGroup)
 
-// Add new interfaces for step tracking
+// Update RenewalStep interface to include planning specific steps
 interface RenewalStep {
   id: string
   title: string
@@ -111,6 +114,7 @@ export function CertificateRenewForm({
   onSuccess,
   onCertificateRenewed,
 }: CertificateRenewFormProps) {
+  const navigate = useNavigate()
   const drawerRef = React.useRef<HTMLFormElement>(null)
   const { refetchCertificates } = useCertificates()
   const [isRenewing, setIsRenewing] = React.useState(false)
@@ -123,26 +127,44 @@ export function CertificateRenewForm({
   const [showMoreOptions, setShowMoreOptions] = React.useState(false)
   const isAmexCert = certificate?.isAmexCert === 'Yes'
   const isNonAmexCert = !isAmexCert
-  const [renewalSteps, setRenewalSteps] = React.useState<RenewalStep[]>([
-    {
-      id: 'initiate',
-      title: 'Initiating Renewal',
-      description: 'Starting the certificate renewal process',
-      status: 'pending'
-    },
-    {
-      id: 'complete',
-      title: 'Completing Renewal',
-      description: 'Finalizing the certificate renewal',
-      status: 'pending'
-    },
-    {
-      id: 'refresh',
-      title: 'Refreshing Data',
-      description: 'Updating certificate information',
-      status: 'pending'
+  const [renewalSteps, setRenewalSteps] = React.useState<RenewalStep[]>(() => {
+    if (withPlanning) {
+      return [
+        {
+          id: 'initiate',
+          title: 'Adding to Planning',
+          description: 'Adding certificate to renewal planning',
+          status: 'pending'
+        },
+        {
+          id: 'redirect',
+          title: 'Redirecting',
+          description: 'Taking you to the planning page',
+          status: 'pending'
+        }
+      ]
     }
-  ])
+    return [
+      {
+        id: 'initiate',
+        title: 'Initiating Renewal',
+        description: 'Starting the certificate renewal process',
+        status: 'pending'
+      },
+      {
+        id: 'complete',
+        title: 'Completing Renewal',
+        description: 'Finalizing the certificate renewal',
+        status: 'pending'
+      },
+      {
+        id: 'refresh',
+        title: 'Refreshing Data',
+        description: 'Updating certificate information',
+        status: 'pending'
+      }
+    ]
+  })
 
   // Function to close the drawer
   const closeDrawer = React.useCallback(() => {
@@ -152,39 +174,45 @@ export function CertificateRenewForm({
     }
   }, [])
 
-  // Function to handle successful renewal
-  const handleRenewalSuccess = React.useCallback(async (message: string) => {
+  // Function to handle planning renewal success
+  const handlePlanningSuccess = React.useCallback(async () => {
     try {
-      console.log('Handling successful renewal...')
+      console.log('Handling planning renewal success...')
       
-      // First refresh the data
-      await refetchCertificates()
-      console.log('Certificate data refreshed')
-      
-      // Then show the success toast
-      toast.success('Certificate renewed successfully!', { 
-        description: message,
-        duration: 5000
+      // Show success toast
+      toast.success('Certificate added to planning!', { 
+        description: 'You will be redirected to the planning page.',
+        duration: 3000
       })
-      console.log('Success toast shown')
       
-      // Then close the drawer
+      // Update second step status
+      updateStepStatus('redirect', 'in-progress')
+      
+      // Small delay to show the success state
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Close the drawer
       closeDrawer()
-      console.log('Drawer closed')
       
-      // Finally call the callbacks
+      // Call the callbacks
       if (onCertificateRenewed) {
         onCertificateRenewed()
       }
       if (onSuccess) {
         onSuccess()
       }
-      console.log('Callbacks executed')
+      
+      // Update final step status
+      updateStepStatus('redirect', 'completed')
+      
+      // Navigate to planning page using TanStack Router
+      navigate({ to: '/planning' })
+      
     } catch (error) {
-      console.error('Error during renewal success handling:', error)
-      // Show error toast but don't prevent drawer from closing
-      toast.error('Error refreshing certificate data', {
-        description: 'The renewal was successful, but there was an error refreshing the data. Please refresh the page.',
+      console.error('Error during planning success handling:', error)
+      updateStepStatus('redirect', 'error')
+      toast.error('Error redirecting to planning page', {
+        description: 'Please navigate to the planning page manually.',
         duration: 5000
       })
       // Still close drawer and call callbacks
@@ -192,7 +220,7 @@ export function CertificateRenewForm({
       if (onCertificateRenewed) onCertificateRenewed()
       if (onSuccess) onSuccess()
     }
-  }, [refetchCertificates, closeDrawer, onCertificateRenewed, onSuccess])
+  }, [navigate, closeDrawer, onCertificateRenewed, onSuccess])
 
   // Helper function to update step status
   const updateStepStatus = (stepId: string, status: RenewalStep['status']) => {
@@ -241,114 +269,79 @@ export function CertificateRenewForm({
         ? format(values.expiryDate, 'yyyy-MM-dd')
         : ""
       
-      // Step 1: First API call to initiate renewal
-      const initiatePayload = {
+      // Prepare payload for API call
+      const payload = {
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
-        expiryDate: validTo, // Include validTo for non-Amex certs
+        expiryDate: validTo,
         checklist: "0,0,0,0,0,0,0,0,0,0,0,0",
         comment: values.comment || "",
         currentStatus: "pending",
         renewalDate: renewalDate,
         renewedBy: "",
-        validTo: validTo // Include validTo for non-Amex certs
+        validTo: validTo,
+        withPlanning: true // Add flag for planning
       }
       
-      console.log('Certificate renewal initiation payload:', initiatePayload)
+      console.log('Certificate renewal payload:', payload)
       
-      // Send the first request to initiate renewal
-      const initiateRes = await fetch(CERTIFICATE_RENEW_API, {
+      // Send the API request
+      const res = await fetch(CERTIFICATE_RENEW_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(initiatePayload)
+        body: JSON.stringify(payload)
       })
       
-      if (!initiateRes.ok) {
+      if (!res.ok) {
         updateStepStatus('initiate', 'error')
         let errorText = ''
         try {
-          errorText = await initiateRes.text()
+          errorText = await res.text()
         } catch {}
-        throw new Error(errorText || `Failed to initiate certificate renewal: ${initiateRes.status} ${initiateRes.statusText}`)
+        throw new Error(errorText || `Failed to add certificate to planning: ${res.status} ${res.statusText}`)
       }
       
-      // Parse response to get renewId for second step
-      const initiateData = await initiateRes.json()
-      
-      if (!initiateData.renewId) {
-        updateStepStatus('initiate', 'error')
-        throw new Error('Failed to get renewal ID from server response')
-      }
-      
-      // Mark first step as completed and start second step
+      // Mark first step as completed
       updateStepStatus('initiate', 'completed')
-      updateStepStatus('complete', 'in-progress')
       
-      console.log('Renewal initiated successfully with ID:', initiateData.renewId)
-      
-      // Step 2: Second API call to complete renewal
-      const completePayload = {
-        id: initiateData.renewId,
-        commonName: certificate.commonName,
-        serialNumber: values.serialNumber,
-        changeNumber: values.changeNumber || '',
-        renewalDate: renewalDate,
-        renewedBy: "",
-        currentStatus: "completed",
-        validTo: validTo, // Include validTo for non-Amex certs
-        checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
-        underRenewal: true,
-        comment: values.comment || "Certificate renewal completed"
+      if (withPlanning) {
+        // Handle planning flow success
+        await handlePlanningSuccess()
+      } else {
+        // Handle immediate renewal flow (existing code)
+        const initiateData = await res.json()
+        
+        if (!initiateData.renewId) {
+          throw new Error('Failed to get renewal ID from server response')
+        }
+        
+        // Mark second step as completed and start refresh step
+        updateStepStatus('complete', 'completed')
+        updateStepStatus('refresh', 'in-progress')
+        
+        // Get the success message directly from the text response
+        const successMessage = await res.text()
+        
+        // Handle successful renewal
+        await handleRenewalSuccess(successMessage)
+        
+        // Mark refresh step as completed
+        updateStepStatus('refresh', 'completed')
       }
-      
-      console.log('Certificate renewal completion payload:', completePayload)
-      
-      // Send the second request to complete renewal
-      const completeRes = await fetch(CERTIFICATE_RENEW_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(completePayload)
-      })
-      
-      console.log('Second API call response status:', completeRes.status)
-      
-      if (!completeRes.ok) {
-        updateStepStatus('complete', 'error')
-        let errorText = ''
-        try {
-          errorText = await completeRes.text()
-        } catch {}
-        throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
-      }
-      
-      // Mark second step as completed and start refresh step
-      updateStepStatus('complete', 'completed')
-      updateStepStatus('refresh', 'in-progress')
-      
-      // Get the success message directly from the text response
-      const successMessage = await completeRes.text()
-      
-      // Handle successful renewal
-      await handleRenewalSuccess(successMessage)
-      
-      // Mark refresh step as completed
-      updateStepStatus('refresh', 'completed')
       
     } catch (err: any) {
       setIsRenewing(false)
-      let message = 'An error occurred while renewing the certificate.'
+      let message = 'An error occurred while processing the certificate.'
       if (err?.name === 'TypeError' && err?.message === 'Failed to fetch') {
         message = 'Network error: Unable to reach the server. Please check your connection.'
       } else if (err?.message) {
         message = err.message
       }
       setApiError(message)
-      toast.error('Certificate renewal failed', {
+      toast.error(withPlanning ? 'Failed to add to planning' : 'Certificate renewal failed', {
         description: message,
         duration: 5000
       })
@@ -543,6 +536,48 @@ export function CertificateRenewForm({
            cert.serialNumber !== certificate.serialNumber;
   }
   
+  // Keep the original handleRenewalSuccess function
+  const handleRenewalSuccess = React.useCallback(async (message: string) => {
+    try {
+      console.log('Handling successful renewal...')
+      
+      // First refresh the data
+      await refetchCertificates()
+      console.log('Certificate data refreshed')
+      
+      // Then show the success toast
+      toast.success('Certificate renewed successfully!', { 
+        description: message,
+        duration: 5000
+      })
+      console.log('Success toast shown')
+      
+      // Then close the drawer
+      closeDrawer()
+      console.log('Drawer closed')
+      
+      // Finally call the callbacks
+      if (onCertificateRenewed) {
+        onCertificateRenewed()
+      }
+      if (onSuccess) {
+        onSuccess()
+      }
+      console.log('Callbacks executed')
+    } catch (error) {
+      console.error('Error during renewal success handling:', error)
+      // Show error toast but don't prevent drawer from closing
+      toast.error('Error refreshing certificate data', {
+        description: 'The renewal was successful, but there was an error refreshing the data. Please refresh the page.',
+        duration: 5000
+      })
+      // Still close drawer and call callbacks
+      closeDrawer()
+      if (onCertificateRenewed) onCertificateRenewed()
+      if (onSuccess) onSuccess()
+    }
+  }, [refetchCertificates, closeDrawer, onCertificateRenewed, onSuccess])
+
   return (
     <form ref={drawerRef} onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-6">
       <AnimatePresence>
