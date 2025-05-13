@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { Certificate } from '@/hooks/use-certificates'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { InfoIcon, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { InfoIcon, AlertCircle, Loader2, RefreshCw, CheckCircle } from 'lucide-react'
 import { CERTIFICATE_RENEW_API, CERTIFICATE_SEARCH_API } from '@/lib/api-endpoints'
 import DatePicker from '@/components/ui/DatePicker'
 import { format, isAfter, isBefore } from 'date-fns'
@@ -97,6 +97,14 @@ const itemVariants = {
 const MotionAlert = motion(Alert)
 const MotionRadioGroup = motion(RadioGroup)
 
+// Add new interfaces for step tracking
+interface RenewalStep {
+  id: string
+  title: string
+  description: string
+  status: 'pending' | 'in-progress' | 'completed' | 'error'
+}
+
 export function CertificateRenewForm({
   certificate,
   withPlanning,
@@ -115,6 +123,26 @@ export function CertificateRenewForm({
   const [showMoreOptions, setShowMoreOptions] = React.useState(false)
   const isAmexCert = certificate?.isAmexCert === 'Yes'
   const isNonAmexCert = !isAmexCert
+  const [renewalSteps, setRenewalSteps] = React.useState<RenewalStep[]>([
+    {
+      id: 'initiate',
+      title: 'Initiating Renewal',
+      description: 'Starting the certificate renewal process',
+      status: 'pending'
+    },
+    {
+      id: 'complete',
+      title: 'Completing Renewal',
+      description: 'Finalizing the certificate renewal',
+      status: 'pending'
+    },
+    {
+      id: 'refresh',
+      title: 'Refreshing Data',
+      description: 'Updating certificate information',
+      status: 'pending'
+    }
+  ])
 
   // Function to close the drawer
   const closeDrawer = React.useCallback(() => {
@@ -166,6 +194,15 @@ export function CertificateRenewForm({
     }
   }, [refetchCertificates, closeDrawer, onCertificateRenewed, onSuccess])
 
+  // Helper function to update step status
+  const updateStepStatus = (stepId: string, status: RenewalStep['status']) => {
+    setRenewalSteps(steps => 
+      steps.map(step => 
+        step.id === stepId ? { ...step, status } : step
+      )
+    )
+  }
+
   const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
     if (!certificate?.certificateIdentifier) {
       setApiError('Certificate identifier is missing')
@@ -181,13 +218,11 @@ export function CertificateRenewForm({
       setIsRenewing(true)
       setApiError(null)
       
-      // Get current date in YYYY-MM-DD format for renewalDate
-      const today = new Date()
-      const renewalDate = format(today, 'yyyy-MM-dd')
+      // Reset steps
+      setRenewalSteps(steps => steps.map(step => ({ ...step, status: 'pending' })))
       
-      // Get renewingTeamName from team store
-      const { selectedTeam } = useTeamStore.getState()
-      const renewingTeamName = selectedTeam || certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security"
+      // Update first step status
+      updateStepStatus('initiate', 'in-progress')
       
       // Step 1: First API call to initiate renewal
       const initiatePayload = {
@@ -215,6 +250,7 @@ export function CertificateRenewForm({
       })
       
       if (!initiateRes.ok) {
+        updateStepStatus('initiate', 'error')
         let errorText = ''
         try {
           errorText = await initiateRes.text()
@@ -226,8 +262,13 @@ export function CertificateRenewForm({
       const initiateData = await initiateRes.json()
       
       if (!initiateData.renewId) {
+        updateStepStatus('initiate', 'error')
         throw new Error('Failed to get renewal ID from server response')
       }
+      
+      // Mark first step as completed and start second step
+      updateStepStatus('initiate', 'completed')
+      updateStepStatus('complete', 'in-progress')
       
       console.log('Renewal initiated successfully with ID:', initiateData.renewId)
       
@@ -237,7 +278,7 @@ export function CertificateRenewForm({
         commonName: certificate.commonName,
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
-        renewalDate: renewalDate,
+        renewalDate: "",
         renewedBy: "",
         currentStatus: "completed",
         validTo: "",
@@ -260,6 +301,7 @@ export function CertificateRenewForm({
       console.log('Second API call response status:', completeRes.status)
       
       if (!completeRes.ok) {
+        updateStepStatus('complete', 'error')
         let errorText = ''
         try {
           errorText = await completeRes.text()
@@ -267,11 +309,18 @@ export function CertificateRenewForm({
         throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
       }
       
+      // Mark second step as completed and start refresh step
+      updateStepStatus('complete', 'completed')
+      updateStepStatus('refresh', 'in-progress')
+      
       // Get the success message directly from the text response
       const successMessage = await completeRes.text()
       
       // Handle successful renewal
       await handleRenewalSuccess(successMessage)
+      
+      // Mark refresh step as completed
+      updateStepStatus('refresh', 'completed')
       
     } catch (err: any) {
       setIsRenewing(false)
@@ -984,8 +1033,8 @@ export function CertificateRenewForm({
         transition={{ delay: 0.5 }}
       >
         <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: isRenewing ? 1 : 1.05 }}
+          whileTap={{ scale: isRenewing ? 1 : 0.95 }}
         >
           <Button 
             type="submit" 
@@ -1003,8 +1052,8 @@ export function CertificateRenewForm({
           </Button>
         </motion.div>
         <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: isRenewing ? 1 : 1.05 }}
+          whileTap={{ scale: isRenewing ? 1 : 0.95 }}
         >
           <DrawerClose asChild data-drawer-close>
             <Button 
@@ -1018,12 +1067,72 @@ export function CertificateRenewForm({
         </motion.div>
       </motion.div>
       
+      {/* Renewal Progress Overlay */}
       {isRenewing && (
-        <div className="fixed inset-0 bg-black/5 z-50 flex items-center justify-center pointer-events-auto">
-          <div className="bg-white rounded-lg p-4 shadow-xl flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span>Certificate renewal in progress...</span>
-          </div>
+        <div className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-50 flex items-center justify-center">
+          <motion.div 
+            className="bg-white rounded-lg p-6 shadow-xl w-full max-w-md mx-4"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <h3 className="text-lg font-semibold mb-4">Certificate Renewal in Progress</h3>
+            <div className="space-y-4">
+              {renewalSteps.map((step, index) => (
+                <motion.div
+                  key={step.id}
+                  className="relative"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.2 }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="relative flex items-center justify-center">
+                      <div 
+                        className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center",
+                          step.status === 'completed' && "bg-green-100",
+                          step.status === 'in-progress' && "bg-blue-100",
+                          step.status === 'error' && "bg-red-100",
+                          step.status === 'pending' && "bg-gray-100"
+                        )}
+                      >
+                        {step.status === 'completed' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : step.status === 'in-progress' ? (
+                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                        ) : step.status === 'error' ? (
+                          <AlertCircle className="w-5 h-5 text-red-600" />
+                        ) : (
+                          <div className="w-3 h-3 rounded-full bg-gray-300" />
+                        )}
+                      </div>
+                      {index < renewalSteps.length - 1 && (
+                        <div 
+                          className={cn(
+                            "absolute top-8 left-1/2 w-0.5 h-8 -translate-x-1/2",
+                            step.status === 'completed' ? "bg-green-200" : "bg-gray-200"
+                          )}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <h4 className={cn(
+                        "text-sm font-medium",
+                        step.status === 'completed' && "text-green-600",
+                        step.status === 'in-progress' && "text-blue-600",
+                        step.status === 'error' && "text-red-600",
+                        step.status === 'pending' && "text-gray-600"
+                      )}>
+                        {step.title}
+                      </h4>
+                      <p className="text-sm text-gray-500 mt-0.5">{step.description}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <p className="text-sm text-gray-500 mt-4 text-center">Please do not close this window</p>
+          </motion.div>
         </div>
       )}
     </form>
