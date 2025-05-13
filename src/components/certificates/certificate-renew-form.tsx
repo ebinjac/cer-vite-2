@@ -358,6 +358,9 @@ export function CertificateRenewForm({
       
       console.log('Certificate renewal completion payload:', completePayload)
       
+      // Add clear logging to indicate the second API call is being made
+      console.log('Making second API call to complete renewal with renewId:', initiateData.renewId)
+      
       // Send the second request to complete renewal
       const completeRes = await fetch(CERTIFICATE_RENEW_API, {
         method: 'POST',
@@ -366,6 +369,8 @@ export function CertificateRenewForm({
         },
         body: JSON.stringify(completePayload)
       })
+      
+      console.log('Second API call response status:', completeRes.status)
       
       if (!completeRes.ok) {
         let errorText = ''
