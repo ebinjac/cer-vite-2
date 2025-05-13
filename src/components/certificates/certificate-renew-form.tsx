@@ -70,6 +70,21 @@ interface CertSearchResponse {
   }
 }
 
+// Add this interface to fix type issue
+interface CertificatePayload {
+  serialNumber: string
+  changeNumber: string
+  commonName: string
+  expiryDate: string
+  checklist: string
+  comment: string
+  currentStatus: string
+  renewalDate: string
+  renewedBy: string
+  validTo: string
+  withPlanning?: boolean
+}
+
 // Animation variants
 const fadeIn = {
   hidden: { opacity: 0, y: 10 },
@@ -270,8 +285,12 @@ export function CertificateRenewForm({
         ? format(values.expiryDate, 'yyyy-MM-dd')
         : ""
       
+      // Get renewingTeamName from team store
+      const { selectedTeam } = useTeamStore.getState()
+      const renewingTeamName = selectedTeam || certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security"
+      
       // Prepare payload for API call
-      const payload = {
+      const payload: CertificatePayload = {
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
@@ -281,42 +300,109 @@ export function CertificateRenewForm({
         currentStatus: "pending",
         renewalDate: renewalDate,
         renewedBy: "",
-        validTo: validTo,
-        withPlanning: true // Add flag for planning
+        validTo: validTo
       }
-      
-      console.log('Certificate renewal payload:', payload)
-      
-      // Send the API request
-      const res = await fetch(CERTIFICATE_RENEW_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
-      
-      if (!res.ok) {
-        updateStepStatus('initiate', 'error')
-        let errorText = ''
-        try {
-          errorText = await res.text()
-        } catch {}
-        throw new Error(errorText || `Failed to add certificate to planning: ${res.status} ${res.statusText}`)
-      }
-      
-      // Mark first step as completed
-      updateStepStatus('initiate', 'completed')
       
       if (withPlanning) {
+        // Add flag for planning
+        payload.withPlanning = true
+        
+        console.log('Certificate planning payload:', payload)
+        
+        // Send the API request for planning
+        const res = await fetch(CERTIFICATE_RENEW_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        })
+        
+        if (!res.ok) {
+          updateStepStatus('initiate', 'error')
+          let errorText = ''
+          try {
+            errorText = await res.text()
+          } catch {}
+          throw new Error(errorText || `Failed to add certificate to planning: ${res.status} ${res.statusText}`)
+        }
+        
+        // Mark first step as completed
+        updateStepStatus('initiate', 'completed')
+        
         // Handle planning flow success
         await handlePlanningSuccess()
       } else {
-        // Handle immediate renewal flow (existing code)
-        const initiateData = await res.json()
+        // Standard renewal flow (not planning)
+        console.log('Certificate renewal initiation payload:', payload)
+        
+        // Send the first request to initiate renewal
+        const initiateRes = await fetch(CERTIFICATE_RENEW_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        })
+        
+        if (!initiateRes.ok) {
+          updateStepStatus('initiate', 'error')
+          let errorText = ''
+          try {
+            errorText = await initiateRes.text()
+          } catch {}
+          throw new Error(errorText || `Failed to initiate certificate renewal: ${initiateRes.status} ${initiateRes.statusText}`)
+        }
+        
+        // Parse response to get renewId for second step
+        const initiateData = await initiateRes.json()
         
         if (!initiateData.renewId) {
+          updateStepStatus('initiate', 'error')
           throw new Error('Failed to get renewal ID from server response')
+        }
+        
+        // Mark first step as completed and start second step
+        updateStepStatus('initiate', 'completed')
+        updateStepStatus('complete', 'in-progress')
+        
+        console.log('Renewal initiated successfully with ID:', initiateData.renewId)
+        
+        // Step 2: Second API call to complete renewal
+        const completePayload = {
+          id: initiateData.renewId,
+          commonName: certificate.commonName,
+          serialNumber: values.serialNumber,
+          changeNumber: values.changeNumber || '',
+          renewalDate: renewalDate,
+          renewedBy: "",
+          currentStatus: "completed",
+          validTo: validTo,
+          checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
+          underRenewal: true,
+          comment: values.comment || "Certificate renewal completed"
+        }
+        
+        console.log('Certificate renewal completion payload:', completePayload)
+        
+        // Send the second request to complete renewal
+        const completeRes = await fetch(CERTIFICATE_RENEW_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(completePayload)
+        })
+        
+        console.log('Second API call response status:', completeRes.status)
+        
+        if (!completeRes.ok) {
+          updateStepStatus('complete', 'error')
+          let errorText = ''
+          try {
+            errorText = await completeRes.text()
+          } catch {}
+          throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
         }
         
         // Mark second step as completed and start refresh step
@@ -324,7 +410,7 @@ export function CertificateRenewForm({
         updateStepStatus('refresh', 'in-progress')
         
         // Get the success message directly from the text response
-        const successMessage = await res.text()
+        const successMessage = await completeRes.text()
         
         // Handle successful renewal
         await handleRenewalSuccess(successMessage)
@@ -537,7 +623,7 @@ export function CertificateRenewForm({
            cert.serialNumber !== certificate.serialNumber;
   }
   
-  // Keep the original handleRenewalSuccess function
+  // Function to handle successful renewal - this was likely missing or modified
   const handleRenewalSuccess = React.useCallback(async (message: string) => {
     try {
       console.log('Handling successful renewal...')
