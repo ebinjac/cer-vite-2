@@ -20,6 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useTeamStore } from '@/store/team-store'
 import { useQueryClient } from '@tanstack/react-query'
+import { useCertificates } from '@/hooks/use-certificates'
 
 // Define form value types
 interface RenewalFormValues {
@@ -102,26 +103,204 @@ export function CertificateRenewForm({
   onSuccess,
   onCertificateRenewed,
 }: CertificateRenewFormProps) {
-  const [apiError, setApiError] = React.useState<string | null>(null)
-  const isAmexCert = certificate?.isAmexCert === 'Yes'
-  const isNonAmexCert = certificate?.isAmexCert === 'No'
-  const [isSearching, setIsSearching] = React.useState(false)
-  const [searchResults, setSearchResults] = React.useState<CertSearchResult[]>([])
-  const [hasSearched, setHasSearched] = React.useState(false)
-  const [manualSerialEntry, setManualSerialEntry] = React.useState(false)
-  const [selectedCert, setSelectedCert] = React.useState<CertSearchResult | null>(null)
-  const [showMoreOptions, setShowMoreOptions] = React.useState(false)
+  const drawerRef = React.useRef<HTMLFormElement>(null)
+  const { refetchCertificates } = useCertificates()
   const [isRenewing, setIsRenewing] = React.useState(false)
-  const closeButtonRef = React.useRef<HTMLButtonElement>(null)
-  const queryClient = useQueryClient()
-  
-  // Set default expiry date to 1 year from now
-  const defaultExpiryDate = React.useMemo(() => {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() + 1);
-    return date;
-  }, []);
-  
+  const [apiError, setApiError] = React.useState<string | null>(null)
+  const [isSearching, setIsSearching] = React.useState(false)
+  const [hasSearched, setHasSearched] = React.useState(false)
+  const [searchResults, setSearchResults] = React.useState<CertSearchResult[]>([])
+  const [selectedCert, setSelectedCert] = React.useState<CertSearchResult | null>(null)
+  const [manualSerialEntry, setManualSerialEntry] = React.useState(false)
+  const [showMoreOptions, setShowMoreOptions] = React.useState(false)
+  const isAmexCert = certificate?.isAmexCert === 'Yes'
+  const isNonAmexCert = !isAmexCert
+
+  // Function to close the drawer
+  const closeDrawer = React.useCallback(() => {
+    const drawerCloseButton = drawerRef.current?.querySelector('[data-drawer-close]') as HTMLButtonElement | null
+    if (drawerCloseButton) {
+      drawerCloseButton.click()
+    }
+  }, [])
+
+  // Function to handle successful renewal
+  const handleRenewalSuccess = React.useCallback(async (message: string) => {
+    try {
+      console.log('Handling successful renewal...')
+      
+      // First refresh the data
+      await refetchCertificates()
+      console.log('Certificate data refreshed')
+      
+      // Then show the success toast
+      toast.success('Certificate renewed successfully!', { 
+        description: message,
+        duration: 5000
+      })
+      console.log('Success toast shown')
+      
+      // Then close the drawer
+      closeDrawer()
+      console.log('Drawer closed')
+      
+      // Finally call the callbacks
+      if (onCertificateRenewed) {
+        onCertificateRenewed()
+      }
+      if (onSuccess) {
+        onSuccess()
+      }
+      console.log('Callbacks executed')
+    } catch (error) {
+      console.error('Error during renewal success handling:', error)
+      // Show error toast but don't prevent drawer from closing
+      toast.error('Error refreshing certificate data', {
+        description: 'The renewal was successful, but there was an error refreshing the data. Please refresh the page.',
+        duration: 5000
+      })
+      // Still close drawer and call callbacks
+      closeDrawer()
+      if (onCertificateRenewed) onCertificateRenewed()
+      if (onSuccess) onSuccess()
+    }
+  }, [refetchCertificates, closeDrawer, onCertificateRenewed, onSuccess])
+
+  const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
+    if (!certificate?.certificateIdentifier) {
+      setApiError('Certificate identifier is missing')
+      return
+    }
+    
+    if (!validateForm(values)) {
+      setApiError('Please fill in all required fields')
+      return
+    }
+    
+    try {
+      setIsRenewing(true)
+      setApiError(null)
+      
+      // Get current date in YYYY-MM-DD format for renewalDate
+      const today = new Date()
+      const renewalDate = format(today, 'yyyy-MM-dd')
+      
+      // Get renewingTeamName from team store
+      const { selectedTeam } = useTeamStore.getState()
+      const renewingTeamName = selectedTeam || certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security"
+      
+      // Step 1: First API call to initiate renewal
+      const initiatePayload = {
+        serialNumber: values.serialNumber,
+        changeNumber: values.changeNumber || '',
+        commonName: certificate.commonName,
+        expiryDate: isNonAmexCert && values.expiryDate 
+          ? format(values.expiryDate, 'yyyy-MM-dd') 
+          : undefined,
+        selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
+          ? selectedCert.certificateIdentifier 
+          : undefined,
+        checklist: "0,0,0,0,0,0,0,0,0,0,0,0",
+        comment: values.comment || "",
+        currentStatus: "pending",
+        renewalDate: renewalDate,
+        renewedBy: "",
+        validTo: certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : undefined
+      }
+      
+      console.log('Certificate renewal initiation payload:', initiatePayload)
+      
+      // Send the first request to initiate renewal
+      const initiateRes = await fetch(CERTIFICATE_RENEW_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(initiatePayload)
+      })
+      
+      if (!initiateRes.ok) {
+        let errorText = ''
+        try {
+          errorText = await initiateRes.text()
+        } catch {}
+        throw new Error(errorText || `Failed to initiate certificate renewal: ${initiateRes.status} ${initiateRes.statusText}`)
+      }
+      
+      // Parse response to get renewId for second step
+      const initiateData = await initiateRes.json()
+      
+      if (!initiateData.renewId) {
+        throw new Error('Failed to get renewal ID from server response')
+      }
+      
+      console.log('Renewal initiated successfully with ID:', initiateData.renewId)
+      
+      // Step 2: Second API call to complete renewal
+      const completePayload = {
+        id: initiateData.renewId,
+        commonName: certificate.commonName,
+        serialNumber: values.serialNumber,
+        changeNumber: values.changeNumber || '',
+        renewalDate: renewalDate,
+        renewedBy: "",
+        currentStatus: "completed",
+        validTo: isNonAmexCert && values.expiryDate 
+          ? format(values.expiryDate, 'yyyy-MM-dd') 
+          : (certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : ''),
+        checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
+        underRenewal: true,
+        comment: values.comment || "Certificate renewal completed"
+      }
+      
+      console.log('Certificate renewal completion payload:', completePayload)
+      
+      // Send the second request to complete renewal
+      const completeRes = await fetch(CERTIFICATE_RENEW_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(completePayload)
+      })
+      
+      console.log('Second API call response status:', completeRes.status)
+      
+      if (!completeRes.ok) {
+        let errorText = ''
+        try {
+          errorText = await completeRes.text()
+        } catch {}
+        throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
+      }
+      
+      // Parse final response
+      const completeData = await completeRes.json()
+      
+      // Update success message
+      const successMessage = completeData?.message || `Successfully renewed certificate ${certificate.commonName}.`
+      
+      // Handle successful renewal
+      await handleRenewalSuccess(successMessage)
+      
+    } catch (err: any) {
+      setIsRenewing(false)
+      let message = 'An error occurred while renewing the certificate.'
+      if (err?.name === 'TypeError' && err?.message === 'Failed to fetch') {
+        message = 'Network error: Unable to reach the server. Please check your connection.'
+      } else if (err?.message) {
+        message = err.message
+      }
+      setApiError(message)
+      toast.error('Certificate renewal failed', {
+        description: message,
+        duration: 5000
+      })
+    } finally {
+      setIsRenewing(false)
+    }
+  }
+
   // Form without zod resolver
   const {
     register,
@@ -133,7 +312,7 @@ export function CertificateRenewForm({
     defaultValues: {
       serialNumber: '',
       changeNumber: '',
-      expiryDate: defaultExpiryDate,
+      expiryDate: new Date(),
       selectedCertificateId: '',
       comment: 'Renewed the certificate',
     },
@@ -269,175 +448,6 @@ export function CertificateRenewForm({
     
     return isValid;
   };
-  
-  const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
-    if (!certificate?.certificateIdentifier) {
-      setApiError('Certificate identifier is missing')
-      return
-    }
-    
-    // Additional validation beyond the form
-    if (!validateForm(values)) {
-      setApiError('Please fill in all required fields')
-      return
-    }
-    
-    try {
-      // Set renewing state to true to prevent drawer closure
-      setIsRenewing(true)
-      
-      // Get current date in YYYY-MM-DD format for renewalDate
-      const today = new Date()
-      const renewalDate = format(today, 'yyyy-MM-dd')
-      
-      // Get renewingTeamName from team store
-      const { selectedTeam } = useTeamStore.getState()
-      const renewingTeamName = selectedTeam || certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security"
-      
-      // Step 1: First API call to initiate renewal
-      const initiatePayload = {
-        serialNumber: values.serialNumber,
-        changeNumber: values.changeNumber || '',
-        commonName: certificate.commonName,
-        expiryDate: isNonAmexCert && values.expiryDate 
-          ? format(values.expiryDate, 'yyyy-MM-dd') 
-          : undefined,
-        selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
-          ? selectedCert.certificateIdentifier 
-          : undefined,
-        // Required fields for first step with initial values
-        checklist: "0,0,0,0,0,0,0,0,0,0,0,0", // Initial checklist with all items unchecked
-        comment: values.comment || "", // User comments for renewal
-        currentStatus: "pending", // Initial status is always "pending"
-        renewalDate: renewalDate,
-        renewedBy: "", // Should be populated from user context in a real app
-        renewingTeamName: renewingTeamName,
-        validTo: certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : undefined
-      }
-      
-      console.log('Certificate renewal initiation payload:', initiatePayload)
-      
-      setApiError(null)
-      
-      // Send the first request to initiate renewal
-      const initiateRes = await fetch(CERTIFICATE_RENEW_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(initiatePayload)
-      })
-      
-      if (!initiateRes.ok) {
-        let errorText = ''
-        try {
-          errorText = await initiateRes.text()
-        } catch {}
-        throw new Error(errorText || `Failed to initiate certificate renewal: ${initiateRes.status} ${initiateRes.statusText}`)
-      }
-      
-      // Parse response to get renewId for second step
-      const initiateData = await initiateRes.json()
-      
-      if (!initiateData.renewId) {
-        throw new Error('Failed to get renewal ID from server response')
-      }
-      
-      console.log('Renewal initiated successfully with ID:', initiateData.renewId)
-      
-      // Step 2: Second API call to complete renewal
-      const completePayload = {
-        id: initiateData.renewId, // The renewId from the first API response
-        commonName: certificate.commonName,
-        serialNumber: values.serialNumber,
-        changeNumber: values.changeNumber || '',
-        renewalDate: renewalDate,
-        renewedBy: "", // Should be populated from user context in a real app
-        currentStatus: "completed", // Always set to completed for second call
-        validTo: isNonAmexCert && values.expiryDate 
-          ? format(values.expiryDate, 'yyyy-MM-dd') 
-          : (certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : ''),
-        checklist: "1,1,1,1,1,1,1,1,1,1,1,1", // All checklist items marked as completed
-        underRenewal: true,
-        renewingTeamName: renewingTeamName,
-        comment: values.comment || "Certificate renewal completed"
-      }
-      
-      console.log('Certificate renewal completion payload:', completePayload)
-      
-      // Add clear logging to indicate the second API call is being made
-      console.log('Making second API call to complete renewal with renewId:', initiateData.renewId)
-      
-      // Send the second request to complete renewal
-      const completeRes = await fetch(CERTIFICATE_RENEW_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(completePayload)
-      })
-      
-      console.log('Second API call response status:', completeRes.status)
-      
-      if (!completeRes.ok) {
-        let errorText = ''
-        try {
-          errorText = await completeRes.text()
-        } catch {}
-        throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
-      }
-      
-      // Parse final response if needed
-      const completeData = await completeRes.json()
-      
-      // Update success message to include the message from the API if available
-      let successMessage = `The certificate has been renewed with the new serial number ${values.serialNumber}.`
-      if (completeData?.message) {
-        successMessage = completeData.message.includes(certificate.commonName) 
-          ? completeData.message 
-          : `Successfully renewed certificate ${certificate.commonName}.`;
-      }
-      
-      console.log('Renewal completed successfully, refreshing data and closing drawer');
-      
-      // Set renewing state to false as the process is complete
-      setIsRenewing(false)
-      
-      // Force refresh of certificate data using React Query client
-      await queryClient.invalidateQueries({ queryKey: ['certificates'] });
-      
-      // Show toast notification
-      toast.success('Certificate renewed successfully!', { 
-        description: successMessage,
-        duration: 5000
-      });
-      
-      // Manually click the close button to ensure drawer closes
-      if (closeButtonRef.current) {
-        closeButtonRef.current.click();
-      }
-      
-      // Still call the callbacks as backup
-      if (onCertificateRenewed) {
-        onCertificateRenewed();
-      }
-      
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (err: any) {
-      // Set renewing state to false if there's an error
-      setIsRenewing(false)
-      
-      let message = 'An error occurred while renewing the certificate.'
-      if (err?.name === 'TypeError' && err?.message === 'Failed to fetch') {
-        message = 'Network error: Unable to reach the server. Please check your connection.'
-      } else if (err?.message) {
-        message = err.message
-      }
-      setApiError(message)
-    }
-  }
 
   if (!certificate) {
     return <div className="p-8 text-center text-muted-foreground">No certificate selected for renewal</div>
@@ -476,7 +486,7 @@ export function CertificateRenewForm({
   }
   
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-6">
+    <form ref={drawerRef} onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-6">
       <AnimatePresence>
         {apiError && (
           <MotionAlert 
@@ -1006,9 +1016,8 @@ export function CertificateRenewForm({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <DrawerClose asChild>
+          <DrawerClose asChild data-drawer-close>
             <Button 
-              ref={closeButtonRef}
               type="button" 
               variant="outline" 
               disabled={isSubmitting || isRenewing}
@@ -1019,7 +1028,6 @@ export function CertificateRenewForm({
         </motion.div>
       </motion.div>
       
-      {/* Overlay to prevent drawer closure during renewal */}
       {isRenewing && (
         <div className="fixed inset-0 bg-black/5 z-50 flex items-center justify-center pointer-events-auto">
           <div className="bg-white rounded-lg p-4 shadow-xl flex items-center gap-3">

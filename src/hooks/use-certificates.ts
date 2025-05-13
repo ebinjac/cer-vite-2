@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CERT_API } from '@/lib/api-endpoints'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import * as React from 'react'
@@ -88,7 +88,9 @@ export const customStatusIcons: Record<CertificateCustomStatus, React.ReactEleme
  * Custom hook to fetch certificate data
  */
 export function useCertificates() {
-  return useQuery<Certificate[]>({
+  const queryClient = useQueryClient()
+
+  const query = useQuery<Certificate[]>({
     queryKey: ['certificates'],
     queryFn: async () => {
       try {
@@ -96,7 +98,8 @@ export function useCertificates() {
         if (!res.ok) {
           throw new Error(`Failed to fetch certificates: ${res.status} ${res.statusText}`)
         }
-        return res.json()
+        const data = await res.json()
+        return data
       } catch (error) {
         console.error('Error fetching certificates:', error)
         throw error
@@ -105,4 +108,33 @@ export function useCertificates() {
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
+
+  // Enhanced refetch function with better error handling and logging
+  const refetchCertificates = React.useCallback(async () => {
+    console.log('Initiating certificate data refetch...')
+    try {
+      // First invalidate the query to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ['certificates'] })
+      console.log('Query cache invalidated, fetching fresh data...')
+      
+      // Then force a refetch
+      const result = await query.refetch()
+      console.log('Certificate data refetch completed successfully')
+      
+      if (result.error) {
+        console.error('Error in refetch result:', result.error)
+        throw result.error
+      }
+      
+      return result
+    } catch (error) {
+      console.error('Error during certificate refetch:', error)
+      throw error
+    }
+  }, [queryClient, query])
+
+  return {
+    ...query,
+    refetchCertificates
+  }
 } 
