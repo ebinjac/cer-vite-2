@@ -66,6 +66,8 @@ import type {
   CertificateChecklist,
   CertificateStatus
 } from '@/hooks/use-plan-certificates'
+import { CERTIFICATE_RENEW_API } from '@/lib/api-endpoints'
+import { toast } from 'sonner'
 
 // Helper function to format dates
 const formatDate = (dateString: string | null): string => {
@@ -171,6 +173,11 @@ const ChecklistButton = ({
   )
 }
 
+// Add helper to check if all items are checked
+const isChecklistComplete = (checklist: CertificateChecklist): boolean => {
+  return Object.values(checklist).every(Boolean)
+}
+
 export function CertificatesTable({ 
   data, 
   isLoading, 
@@ -207,15 +214,75 @@ export function CertificatesTable({
     setIsChecklistModalOpen(true)
   }, [])
   
-  // Handle saving checklist changes
+  // Enhanced handleSaveChecklist to handle both partial updates and completion
   const handleSaveChecklist = useCallback(async (
     id: number, 
     updates: Partial<CertificateChecklist>,
     comment: string
   ) => {
-    const result = await updateCertificateChecklist(id, updates, comment)
-    return result
-  }, [updateCertificateChecklist])
+    try {
+      // First, check if this update would complete the checklist
+      const certificate = data.find(cert => cert.id === id)
+      if (!certificate) {
+        throw new Error('Certificate not found')
+      }
+
+      const currentChecklist = parseChecklist(certificate.checklist)
+      const updatedChecklist = { ...currentChecklist, ...updates }
+      const isComplete = isChecklistComplete(updatedChecklist)
+
+      if (isComplete) {
+        // If checklist is complete, trigger the second API call to complete the renewal
+        const completePayload = {
+          id: certificate.id,
+          commonName: certificate.commonName,
+          serialNumber: certificate.seriatNumber,
+          changeNumber: certificate.changeNumber || '',
+          renewalDate: certificate.renewalDate,
+          renewedBy: certificate.renewedBy || "",
+          currentStatus: "completed",
+          validTo: certificate.validTo,
+          checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
+          underRenewal: true,
+          comment: comment || "Certificate renewal completed"
+        }
+
+        const completeRes = await fetch(CERTIFICATE_RENEW_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(completePayload)
+        })
+
+        if (!completeRes.ok) {
+          throw new Error('Failed to complete certificate renewal')
+        }
+
+        const successMessage = await completeRes.text()
+        toast.success('Certificate renewal completed!', {
+          description: successMessage
+        })
+
+        return true
+      } else {
+        // If checklist is not complete, just update the checklist
+        const updateResult = await updateCertificateChecklist(id, updates, comment)
+        if (updateResult) {
+          toast.success('Checklist updated', {
+            description: 'The certificate checklist has been updated successfully.'
+          })
+        }
+        return updateResult
+      }
+    } catch (error) {
+      console.error('Error updating checklist:', error)
+      toast.error('Failed to update checklist', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
+      return false
+    }
+  }, [data, parseChecklist, updateCertificateChecklist])
   
   // Define table columns
   const columns = React.useMemo<ColumnDef<PlanCertificate>[]>(() => [

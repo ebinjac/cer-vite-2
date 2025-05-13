@@ -24,6 +24,7 @@ import { useTeamStore } from '@/store/team-store'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCertificates } from '@/hooks/use-certificates'
 import { useNavigate } from '@tanstack/react-router'
+import { AdvancedDatePicker } from '@/components/ui/advanced-date-picker'
 
 // Define form value types
 interface RenewalFormValues {
@@ -520,8 +521,8 @@ export function CertificateRenewForm({
     }
   };
   
-  // Handle date change
-  const handleDateChange = (date: Date | null) => {
+  // Update the handleDateChange function with better typing
+  const handleDateChange = (date: Date | undefined) => {
     setValue('expiryDate', date || undefined, {
       shouldValidate: true,
       shouldDirty: true,
@@ -1002,10 +1003,11 @@ export function CertificateRenewForm({
               <div className={cn(
                 !expiryDate && "ring-1 ring-red-500 rounded-md"
               )}>
-                <DatePicker
+                <AdvancedDatePicker
                   value={expiryDate}
                   onChange={handleDateChange}
                   placeholder="Select new expiry date"
+                  disabled={isSubmitting || isRenewing}
                 />
               </div>
               {!expiryDate && (
