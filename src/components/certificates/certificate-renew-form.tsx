@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useTeamStore } from '@/store/team-store'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Define form value types
 interface RenewalFormValues {
@@ -111,6 +112,8 @@ export function CertificateRenewForm({
   const [selectedCert, setSelectedCert] = React.useState<CertSearchResult | null>(null)
   const [showMoreOptions, setShowMoreOptions] = React.useState(false)
   const [isRenewing, setIsRenewing] = React.useState(false)
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null)
+  const queryClient = useQueryClient()
   
   // Set default expiry date to 1 year from now
   const defaultExpiryDate = React.useMemo(() => {
@@ -395,30 +398,33 @@ export function CertificateRenewForm({
           : `Successfully renewed certificate ${certificate.commonName}.`;
       }
       
+      console.log('Renewal completed successfully, refreshing data and closing drawer');
+      
       // Set renewing state to false as the process is complete
       setIsRenewing(false)
       
-      // First trigger certificate data refetch
+      // Force refresh of certificate data using React Query client
+      await queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      
+      // Show toast notification
+      toast.success('Certificate renewed successfully!', { 
+        description: successMessage,
+        duration: 5000
+      });
+      
+      // Manually click the close button to ensure drawer closes
+      if (closeButtonRef.current) {
+        closeButtonRef.current.click();
+      }
+      
+      // Still call the callbacks as backup
       if (onCertificateRenewed) {
-        try {
-          await onCertificateRenewed(); // Wait for data refetch to complete
-        } catch (error) {
-          console.error('Error refetching certificate data:', error);
-        }
+        onCertificateRenewed();
       }
       
-      // Then close the drawer
       if (onSuccess) {
-        onSuccess(); // This typically closes the drawer
+        onSuccess();
       }
-      
-      // Show toast after drawer is closed to ensure it's visible
-      setTimeout(() => {
-        toast.success('Certificate renewed successfully!', { 
-          description: successMessage,
-          duration: 5000
-        });
-      }, 100);
     } catch (err: any) {
       // Set renewing state to false if there's an error
       setIsRenewing(false)
@@ -1001,7 +1007,12 @@ export function CertificateRenewForm({
           whileTap={{ scale: 0.95 }}
         >
           <DrawerClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmitting || isRenewing}>
+            <Button 
+              ref={closeButtonRef}
+              type="button" 
+              variant="outline" 
+              disabled={isSubmitting || isRenewing}
+            >
               Cancel
             </Button>
           </DrawerClose>
