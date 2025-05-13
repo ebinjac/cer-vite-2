@@ -194,18 +194,13 @@ export function CertificateRenewForm({
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
-        expiryDate: isNonAmexCert && values.expiryDate 
-          ? format(values.expiryDate, 'yyyy-MM-dd') 
-          : undefined,
-        selectedCertificateId: isAmexCert && !manualSerialEntry && selectedCert 
-          ? selectedCert.certificateIdentifier 
-          : undefined,
+        expiryDate: "",
         checklist: "0,0,0,0,0,0,0,0,0,0,0,0",
         comment: values.comment || "",
         currentStatus: "pending",
-        renewalDate: renewalDate,
+        renewalDate: "",
         renewedBy: "",
-        validTo: certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : undefined
+        validTo: ""
       }
       
       console.log('Certificate renewal initiation payload:', initiatePayload)
@@ -245,9 +240,7 @@ export function CertificateRenewForm({
         renewalDate: renewalDate,
         renewedBy: "",
         currentStatus: "completed",
-        validTo: isNonAmexCert && values.expiryDate 
-          ? format(values.expiryDate, 'yyyy-MM-dd') 
-          : (certificate.validTo ? format(new Date(certificate.validTo), 'yyyy-MM-dd') : ''),
+        validTo: "",
         checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
         underRenewal: true,
         comment: values.comment || "Certificate renewal completed"
@@ -274,11 +267,8 @@ export function CertificateRenewForm({
         throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
       }
       
-      // Parse final response
-      const completeData = await completeRes.json()
-      
-      // Update success message
-      const successMessage = completeData?.message || `Successfully renewed certificate ${certificate.commonName}.`
+      // Get the success message directly from the text response
+      const successMessage = await completeRes.text()
       
       // Handle successful renewal
       await handleRenewalSuccess(successMessage)
