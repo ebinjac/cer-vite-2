@@ -210,7 +210,15 @@ export function CertificateRenewForm({
     }
     
     if (!validateForm(values)) {
-      setApiError('Please fill in all required fields')
+      setApiError(isNonAmexCert 
+        ? 'Please provide both serial number and expiry date' 
+        : 'Please provide serial number')
+      return
+    }
+
+    // For non-Amex certs, ensure expiry date is provided
+    if (isNonAmexCert && !values.expiryDate) {
+      setApiError('Expiry date is required for non-Amex certificates')
       return
     }
     
@@ -224,18 +232,27 @@ export function CertificateRenewForm({
       // Update first step status
       updateStepStatus('initiate', 'in-progress')
       
+      // Get current date in YYYY-MM-DD format for renewalDate
+      const today = new Date()
+      const renewalDate = format(today, 'yyyy-MM-dd')
+      
+      // Format validTo date for non-Amex certs
+      const validTo = isNonAmexCert && values.expiryDate 
+        ? format(values.expiryDate, 'yyyy-MM-dd')
+        : ""
+      
       // Step 1: First API call to initiate renewal
       const initiatePayload = {
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
-        expiryDate: "",
+        expiryDate: validTo, // Include validTo for non-Amex certs
         checklist: "0,0,0,0,0,0,0,0,0,0,0,0",
         comment: values.comment || "",
         currentStatus: "pending",
-        renewalDate: "",
+        renewalDate: renewalDate,
         renewedBy: "",
-        validTo: ""
+        validTo: validTo // Include validTo for non-Amex certs
       }
       
       console.log('Certificate renewal initiation payload:', initiatePayload)
@@ -278,10 +295,10 @@ export function CertificateRenewForm({
         commonName: certificate.commonName,
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
-        renewalDate: "",
+        renewalDate: renewalDate,
         renewedBy: "",
         currentStatus: "completed",
-        validTo: "",
+        validTo: validTo, // Include validTo for non-Amex certs
         checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
         underRenewal: true,
         comment: values.comment || "Certificate renewal completed"
@@ -475,14 +492,16 @@ export function CertificateRenewForm({
   const validateForm = (values: RenewalFormValues): boolean => {
     let isValid = true;
     
-    // For both Amex and Non-Amex certificates, a serial number is required
+    // For all certificates, a serial number is required
     if (!values.serialNumber) {
       isValid = false;
     }
     
-    // For Non-Amex certificates only, an expiry date is required
-    if (isNonAmexCert && !values.expiryDate) {
-      isValid = false;
+    // For Non-Amex certificates, validTo date is required
+    if (isNonAmexCert) {
+      if (!values.expiryDate) {
+        isValid = false;
+      }
     }
     
     return isValid;
@@ -940,28 +959,30 @@ export function CertificateRenewForm({
               )}
             </motion.div>
             
-            {isNonAmexCert && (
-              <motion.div variants={itemVariants}>
-                <label className="block text-sm font-medium mb-1">
-                  Expiry Date <span className="text-red-500">*</span>
-                  <span className="text-xs text-muted-foreground ml-1">(Required for Non-Amex certificates)</span>
-                </label>
+            <motion.div variants={itemVariants}>
+              <label className="block text-sm font-medium mb-1">
+                Expiry Date <span className="text-red-500">*</span>
+                <span className="text-xs text-muted-foreground ml-1">(Required for Non-Amex certificates)</span>
+              </label>
+              <div className={cn(
+                !expiryDate && "ring-1 ring-red-500 rounded-md"
+              )}>
                 <DatePicker
                   value={expiryDate}
                   onChange={handleDateChange}
                   placeholder="Select new expiry date"
                 />
-                {!expiryDate && isSubmitSuccessful && (
-                  <motion.p 
-                    className="text-xs text-red-500 mt-1"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    Expiry Date is required for Non-Amex certificates
-                  </motion.p>
-                )}
-              </motion.div>
-            )}
+              </div>
+              {!expiryDate && (
+                <motion.p 
+                  className="text-xs text-red-500 mt-1"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  Expiry Date is required for Non-Amex certificates
+                </motion.p>
+              )}
+            </motion.div>
           </div>
         )}
         
