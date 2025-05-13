@@ -44,8 +44,9 @@ export function AdvancedDatePicker({
 
   // Handle date selection
   const handleSelect = (newDate: Date | undefined) => {
+    console.log("Date selected in date picker:", newDate)
     setDate(newDate)
-    if (onChange && newDate) {
+    if (onChange) {
       onChange(newDate)
     }
   }
@@ -63,6 +64,12 @@ export function AdvancedDatePicker({
   const handleMonthSelect = (selectedMonth: Date) => {
     setMonth(selectedMonth)
     setIsYearView(false)
+    
+    // If no date is selected yet, set a default date for this month
+    if (!date) {
+      const newDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 15)
+      handleSelect(newDate)
+    }
   }
 
   return (

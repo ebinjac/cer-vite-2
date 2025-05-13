@@ -248,6 +248,9 @@ export function CertificateRenewForm({
   }
 
   const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
+    console.log("Form submission values:", values)
+    console.log("Expiry date:", values.expiryDate)
+    
     if (!certificate?.certificateIdentifier) {
       setApiError('Certificate identifier is missing')
       return
@@ -448,12 +451,22 @@ export function CertificateRenewForm({
     defaultValues: {
       serialNumber: '',
       changeNumber: '',
-      expiryDate: new Date(),
+      expiryDate: undefined,
       selectedCertificateId: '',
       comment: 'Renewed the certificate',
     },
+    mode: 'onChange',
   })
   
+  // Register expiryDate field for non-Amex certificates
+  React.useEffect(() => {
+    if (isNonAmexCert) {
+      register('expiryDate', { 
+        required: 'Expiry Date is required for Non-Amex certificates' 
+      })
+    }
+  }, [isNonAmexCert, register])
+
   // Watch form values
   const expiryDate = watch('expiryDate');
   const serialNumber = watch('serialNumber');
@@ -568,24 +581,53 @@ export function CertificateRenewForm({
     })
   }
 
-  // Custom validation function
+  // Update the handleDateChange function to ensure it works correctly
+  const handleDateChange = (date: Date | undefined) => {
+    console.log("Date changed in the form:", date)
+    
+    // Make sure we have a valid Date object or undefined
+    const validDate = date instanceof Date ? date : undefined
+    
+    setValue('expiryDate', validDate, {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true, // Mark as touched to trigger validation
+    })
+    
+    // Force validation after date change
+    if (isNonAmexCert && !validDate) {
+      setApiError('Expiry date is required for Non-Amex certificates')
+    } else {
+      setApiError(null)
+    }
+    
+    handleFieldChange()
+  }
+
+  // Update the validateForm function to log more information
   const validateForm = (values: RenewalFormValues): boolean => {
-    let isValid = true;
+    console.log("Validating form values:", values)
+    let isValid = true
     
     // For all certificates, a serial number is required
     if (!values.serialNumber) {
-      isValid = false;
+      console.log("Serial number missing")
+      isValid = false
     }
     
     // For Non-Amex certificates, validTo date is required
     if (isNonAmexCert) {
       if (!values.expiryDate) {
-        isValid = false;
+        console.log("Expiry date missing for non-Amex cert")
+        isValid = false
+      } else {
+        console.log("Expiry date is present:", values.expiryDate)
       }
     }
     
-    return isValid;
-  };
+    console.log("Form validation result:", isValid)
+    return isValid
+  }
 
   if (!certificate) {
     return <div className="p-8 text-center text-muted-foreground">No certificate selected for renewal</div>
@@ -607,15 +649,6 @@ export function CertificateRenewForm({
     }
   };
   
-  // Update the handleDateChange function with better typing
-  const handleDateChange = (date: Date | undefined) => {
-    setValue('expiryDate', date || undefined, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    handleFieldChange();
-  };
-
   // Check if a cert can be selected (not revoked, not expired, not current cert)
   const canSelectCertificate = (cert: CertSearchResult): boolean => {
     return cert.certificateStatus !== 'Revoked' && 
@@ -1086,9 +1119,12 @@ export function CertificateRenewForm({
                 Expiry Date <span className="text-red-500">*</span>
                 <span className="text-xs text-muted-foreground ml-1">(Required for Non-Amex certificates)</span>
               </label>
-              <div className={cn(
-                !expiryDate && "ring-1 ring-red-500 rounded-md"
-              )}>
+              <div 
+                className={cn(
+                  "rounded-md",
+                  errors.expiryDate || (!expiryDate && isSubmitSuccessful) ? "ring-1 ring-red-500" : ""
+                )}
+              >
                 <AdvancedDatePicker
                   value={expiryDate}
                   onChange={handleDateChange}
@@ -1096,7 +1132,7 @@ export function CertificateRenewForm({
                   disabled={isSubmitting || isRenewing}
                 />
               </div>
-              {!expiryDate && (
+              {(errors.expiryDate || (!expiryDate && isSubmitSuccessful)) && (
                 <motion.p 
                   className="text-xs text-red-500 mt-1"
                   initial={{ opacity: 0 }}
