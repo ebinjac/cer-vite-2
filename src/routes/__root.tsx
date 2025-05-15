@@ -16,7 +16,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   component: () => (
     <div className="flex min-h-screen w-full overflow-hidden">
       <AppSidebar />
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden pl-16">
         <Header />
         <Outlet />
         <TanStackRouterDevtools />

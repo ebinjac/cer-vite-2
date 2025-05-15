@@ -18,7 +18,7 @@ export function CertificateUpdateDrawer({
 }: CertificateUpdateDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="h-[100dvh] max-w-[90vw] md:max-w-[500px] flex flex-col p-0">
+      <DrawerContent className="h-[100dvh] max-w-[90vw] md:min-w-[750px] flex flex-col p-0">
         <DrawerHeader className="border-b pb-4">
           <DrawerTitle>Update Certificate</DrawerTitle>
         </DrawerHeader>

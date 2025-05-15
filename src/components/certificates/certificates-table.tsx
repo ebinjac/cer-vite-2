@@ -2236,7 +2236,7 @@ export function CertificatesTable({ data, isLoading, isError, error, teamName, o
                   Add Certificate
                 </MotionButton>
               </DrawerTrigger>
-              <DrawerContent className="w-[80vw] max-w-4xl ml-auto">
+              <DrawerContent className="min-w-[750px] max-w-4xl ml-auto">
                 <DrawerHeader>
                   <DrawerTitle>Add Certificate</DrawerTitle>
                 </DrawerHeader>

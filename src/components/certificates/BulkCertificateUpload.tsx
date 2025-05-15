@@ -442,31 +442,33 @@ export function BulkCertificateUpload({ onUploadSuccess }: { onUploadSuccess?: (
   return (
     <div className="w-full my-8 px-4">
       <div className="max-w-4xl mx-auto mb-8">
-        <Stepper value={currentStep} onChange={handleStepChange} className="w-full">
-          {UPLOAD_STEPS.map(({ step, title, description }) => (
-            <StepperItem
-              key={step}
-              step={step}
-              className="relative flex-1 flex-col!"
-            >
-              <StepperTrigger 
-                className="flex-col gap-3 rounded"
-                disabled={!canNavigateToStep[step]}
+        <div className="space-y-8">
+          <Stepper value={currentStep} onChange={handleStepChange}>
+            {UPLOAD_STEPS.map(({ step, title, description }) => (
+              <StepperItem
+                key={step}
+                step={step}
+                className="relative flex-1 flex-col!"
               >
-                <StepperIndicator />
-                <div className="space-y-0.5 px-2">
-                  <StepperTitle>{title}</StepperTitle>
-                  <StepperDescription className="max-sm:hidden">
-                    {description}
-                  </StepperDescription>
-                </div>
-              </StepperTrigger>
-              {step < UPLOAD_STEPS.length && (
-                <StepperSeparator className="absolute inset-x-0 top-3 left-[calc(50%+0.75rem+0.125rem)] -order-1 m-0 -translate-y-1/2 group-data-[orientation=horizontal]/stepper:w-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=horizontal]/stepper:flex-none" />
-              )}
-            </StepperItem>
-          ))}
-        </Stepper>
+                <StepperTrigger 
+                  className="flex-col gap-3 rounded"
+                  disabled={!canNavigateToStep[step]}
+                >
+                  <StepperIndicator />
+                  <div className="space-y-0.5 px-2">
+                    <StepperTitle>{title}</StepperTitle>
+                    <StepperDescription className="max-sm:hidden">
+                      {description}
+                    </StepperDescription>
+                  </div>
+                </StepperTrigger>
+                {step < UPLOAD_STEPS.length && (
+                  <StepperSeparator className="absolute inset-x-0 top-3 left-[calc(50%+0.75rem+0.125rem)] -order-1 m-0 -translate-y-1/2 group-data-[orientation=horizontal]/stepper:w-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=horizontal]/stepper:flex-none" />
+                )}
+              </StepperItem>
+            ))}
+          </Stepper>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">

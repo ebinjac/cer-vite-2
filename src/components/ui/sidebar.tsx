@@ -716,15 +716,15 @@ export function AppSidebar() {
   useRouterState({ select: state => state.location.pathname })
   return (
     <aside
-      className="h-screen border-r border-border flex flex-col items-stretch z-30 bg-background select-none w-16"
+      className="fixed left-0 top-0 h-screen border-r border-border flex flex-col items-stretch z-30 bg-background select-none w-16"
       style={{ minWidth: SIDEBAR_WIDTH }}
     >
       <div className="flex flex-col flex-1 justify-between h-full">
         <div className="flex flex-col items-center">
-          <div className="mt-4 mb-2">
+          <div className="mt-4 mb-8">
             <SmallAnimatedLogo />
           </div>
-          <Separator className="w-8 my-2" />
+          
           <nav className="flex flex-col gap-2">
             {navItems.map(item => (
               <SidebarNavItem key={item.to} item={item} />
@@ -740,57 +740,47 @@ export function AppSidebar() {
 }
 
 function SidebarNavItem({ item, isLogout }: { item: { label: string, to: string, icon: any }, isLogout?: boolean }) {
-  const [hovered, setHovered] = React.useState(false)
   return (
-    <Link
-      to={item.to}
-      activeOptions={{ exact: true }}
-      className={`relative flex items-center justify-center py-2 w-12 h-12 mx-auto my-1 group`}
-      style={{ minWidth: 0 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      tabIndex={0}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
-    >
-      {({ isActive }) => (
-        <>
-          {/* Shared animated background for active icon */}
-          {isActive && (
-            <motion.div
-              layoutId="sidebar-active-bg"
-              className="absolute inset-0 w-12 h-12 bg-primary rounded-full shadow-lg z-0"
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            />
-          )}
-          <motion.div
-            className={`flex items-center justify-center w-12 h-12 transition-colors duration-200
-              ${isActive ? 'text-primary-foreground' : 'text-muted-foreground'}
-              ${isLogout ? 'mt-4' : ''}`}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            style={{ position: 'relative', zIndex: 1 }}
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            to={item.to}
+            activeOptions={{ exact: true }}
+            className={`relative flex items-center justify-center py-2 w-12 h-12 mx-auto my-1 group`}
+            style={{ minWidth: 0 }}
+            tabIndex={0}
           >
-            <item.icon className={`w-7 h-7`} />
-          </motion.div>
-          <AnimatePresence>
-            {hovered && !isLogout && (
-              <motion.span
-                initial={{ opacity: 0, x: 4 }}
-                animate={{ opacity: 1, x: 44 }}
-                exit={{ opacity: 0, x: 4 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className={`absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-1 bg-popover text-popover-foreground rounded shadow-lg whitespace-nowrap font-medium text-base pointer-events-none select-none`}
-                style={{ zIndex: 10 }}
-              >
-                {item.label}
-              </motion.span>
+            {({ isActive }) => (
+              <>
+                {/* Shared animated background for active icon */}
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-active-bg"
+                    className="absolute inset-0 w-12 h-12 bg-primary rounded-full shadow-lg z-0"
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                )}
+                <motion.div
+                  className={`flex items-center justify-center w-12 h-12 transition-colors duration-200
+                    ${isActive ? 'text-primary-foreground' : 'text-muted-foreground'}
+                    ${isLogout ? 'mt-4' : ''}`}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  style={{ position: 'relative', zIndex: 1 }}
+                >
+                  <item.icon className={`w-7 h-7`} />
+                </motion.div>
+              </>
             )}
-          </AnimatePresence>
-        </>
-      )}
-    </Link>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="font-medium">
+          {item.label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 

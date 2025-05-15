@@ -575,58 +575,100 @@ export function CertificatesTable({
       </div>
       
       <div className="rounded-md border w-full overflow-hidden">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={`loading-${i}`}>
-                  {Array.from({ length: columns.length }).map((_, j) => (
-                    <TableCell key={`loading-cell-${i}-${j}`}>
-                      <Skeleton className="h-4 w-full" />
-                    </TableCell>
-                  ))}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header, index) => {
+                    // Add className conditionally based on column position
+                    const isFirstColumn = index === 0
+                    const isLastColumn = index === headerGroup.headers.length - 1
+                    const className = isFirstColumn
+                      ? "sticky left-0 bg-white dark:bg-background z-10 shadow-[1px_0_0_#e5e7eb]"
+                      : isLastColumn
+                      ? "sticky right-0 bg-white dark:bg-background z-10 shadow-[-1px_0_0_#e5e7eb]"
+                      : ""
+                    
+                    return (
+                      <TableHead 
+                        key={header.id} 
+                        className={className}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })}
                 </TableRow>
-              ))
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
+              ))}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={`loading-${i}`}>
+                    {Array.from({ length: columns.length }).map((_, j) => {
+                      // Add className conditionally based on column position
+                      const isFirstColumn = j === 0
+                      const isLastColumn = j === columns.length - 1
+                      const className = isFirstColumn
+                        ? "sticky left-0 bg-white dark:bg-background z-10 shadow-[1px_0_0_#e5e7eb]"
+                        : isLastColumn
+                        ? "sticky right-0 bg-white dark:bg-background z-10 shadow-[-1px_0_0_#e5e7eb]"
+                        : ""
+                      
+                      return (
+                        <TableCell 
+                          key={`loading-cell-${i}-${j}`}
+                          className={className}
+                        >
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                ))
+              ) : table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell, index) => {
+                      // Add className conditionally based on column position
+                      const isFirstColumn = index === 0
+                      const isLastColumn = index === row.getVisibleCells().length - 1
+                      const className = isFirstColumn
+                        ? "sticky left-0 bg-white dark:bg-background z-10 shadow-[1px_0_0_#e5e7eb]"
+                        : isLastColumn
+                        ? "sticky right-0 bg-white dark:bg-background z-10 shadow-[-1px_0_0_#e5e7eb]"
+                        : ""
+                      
+                      return (
+                        <TableCell 
+                          key={cell.id}
+                          className={className}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No results.
+                  </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       
       <div className="flex items-center justify-between">

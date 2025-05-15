@@ -28,6 +28,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { PlusCircle } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import {
   CertificateStatusPieChart,
   MonthlyCertificateBarChart,
@@ -37,13 +40,14 @@ import {
   CertificatesPerApplicationBarChart
 } from '@/components/dashboard'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
 })
 
 function Dashboard() {
+  const navigate = useNavigate()
   const { data: certificatesData, isLoading: isLoadingCertificates } = useCertificates()
   const { data: serviceIdsData, isLoading: isLoadingServiceIds } = useServiceIds()
   const { selectedTeam } = useTeamStore()
@@ -222,6 +226,33 @@ function Dashboard() {
     return "text-green-600";
   }
   
+  // Empty state handlers
+  const handleNavigateToCertificates = () => {
+    navigate({ to: '/certificates' as const })
+  }
+
+  const handleNavigateToServiceIds = () => {
+    navigate({ to: '/serviceid' as const })
+  }
+
+  const EmptyStateMessage = ({ type, onAction }: { type: 'certificates' | 'service-ids', onAction: () => void }) => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="rounded-full bg-muted/30 p-4 mb-4">
+        <PlusCircle className="w-8 h-8 text-muted-foreground" />
+      </div>
+      <h3 className="text-lg font-medium mb-2">No {type === 'certificates' ? 'Certificates' : 'Service IDs'} Found</h3>
+      <p className="text-muted-foreground mb-6 max-w-sm">
+        {selectedTeam 
+          ? `Your team hasn't onboarded any ${type} yet. Get started by adding your first one.`
+          : `There are no ${type} in the system yet. Get started by adding your first one.`}
+      </p>
+      <Button onClick={onAction} className="gap-2">
+        <PlusCircle className="w-4 h-4" />
+        Add {type === 'certificates' ? 'Certificate' : 'Service ID'}
+      </Button>
+    </div>
+  )
+
   return (
     <PageTransition keyId="dashboard">
       <div className="p-6">
@@ -241,128 +272,154 @@ function Dashboard() {
           handleServiceIdRangeClick={handleServiceIdRangeClick}
         />
         {/* Dashboard Charts in a single Card */}
-        <Card className="mb-8">
+        <Card className="mb-8 bg-muted/50">
           <CardHeader>
             <CardTitle>Certificates</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Comprehensive overview of all certificates in the system. View distribution by status, monthly trends, and upcoming expirations. The charts show active, pending, and expired certificates across different applications.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="col-span-1 min-h-[350px]">
-                <CertificateStatusPieChart
-                  statusData={pieData}
-                  statusConfig={pieConfig}
-                  typeData={typeData}
-                  typeConfig={typeConfig}
-                  className="border-0 shadow-none h-full"
+            {isLoadingCertificates ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : filteredCertificates.length === 0 ? (
+              <EmptyStateMessage type="certificates" onAction={handleNavigateToCertificates} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                  <div className="col-span-1 min-h-[350px]">
+                    <CertificateStatusPieChart
+                      statusData={pieData}
+                      statusConfig={pieConfig}
+                      typeData={typeData}
+                      typeConfig={typeConfig}
+                      className="border-0 shadow-none h-full"
+                    />
+                  </div>
+                  <div className="md:col-span-2 col-span-1 min-h-[350px]">
+                    <MonthlyCertificateBarChart data={monthlyData} config={barConfig} className="border-0 shadow-none h-full" />
+                  </div>
+                  <div className="col-span-1 min-h-[350px]">
+                    <UpcomingCertificateExpirations items={upcomingItems} className="border-0 shadow-none h-full" />
+                  </div>
+                </div>
+                <CertificatesPerApplicationBarChart
+                  data={appBarData}
+                  config={appBarConfig}
+                  className="mt-4 border-0 shadow-none"
                 />
-              </div>
-              <div className="md:col-span-2 col-span-1 min-h-[350px]">
-                <MonthlyCertificateBarChart data={monthlyData} config={barConfig} className="border-0 shadow-none h-full" />
-              </div>
-              <div className="col-span-1 min-h-[350px]">
-                <UpcomingCertificateExpirations items={upcomingItems} className="border-0 shadow-none h-full" />
-              </div>
-            </div>
-            <CertificatesPerApplicationBarChart
-              data={appBarData}
-              config={appBarConfig}
-              className="mt-4 border-0 shadow-none"
-            />
+              </>
+            )}
           </CardContent>
         </Card>
         {/* Service IDs Card and Charts */}
-        <Card className="mb-8">
+        <Card className="mb-8 bg-muted/50">
           <CardHeader>
             <CardTitle>Service IDs</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Complete analysis of service IDs including status distribution, renewal processes, and expiration timelines. Monitor automated vs manual renewals and track service IDs across different applications.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="col-span-1 min-h-[350px]">
-                {/* Service ID Pie Chart with Status and Renewal Process Tabs */}
-                <CertificateStatusPieChart
-                  statusData={[
-                    { status: 'active', value: filteredServiceIds.filter(svc => svc.status === 'Active').length },
-                    { status: 'pending', value: filteredServiceIds.filter(svc => svc.status === 'Pending').length },
-                    { status: 'expired', value: filteredServiceIds.filter(svc => svc.status === 'Expired').length }
-                  ]}
-                  statusConfig={{
+            {isLoadingServiceIds ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : filteredServiceIds.length === 0 ? (
+              <EmptyStateMessage type="service-ids" onAction={handleNavigateToServiceIds} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                  <div className="col-span-1 min-h-[350px]">
+                    <CertificateStatusPieChart
+                      statusData={[
+                        { status: 'active', value: filteredServiceIds.filter(svc => svc.status === 'Active').length },
+                        { status: 'pending', value: filteredServiceIds.filter(svc => svc.status === 'Pending').length },
+                        { status: 'expired', value: filteredServiceIds.filter(svc => svc.status === 'Expired').length }
+                      ]}
+                      statusConfig={{
+                        active: { label: 'Active', color: '#22c55e' },
+                        pending: { label: 'Pending', color: '#fbbf24' },
+                        expired: { label: 'Expired', color: '#ef4444' }
+                      }}
+                      renewalData={[
+                        { status: 'automated', value: filteredServiceIds.filter(svc => svc.renewalProcess === 'Automated').length },
+                        { status: 'manual', value: filteredServiceIds.filter(svc => svc.renewalProcess === 'Manual').length }
+                      ]}
+                      renewalConfig={{
+                        automated: { label: 'Automated', color: '#0ea5e9' },
+                        manual: { label: 'Manual', color: '#fbbf24' }
+                      }}
+                      typeData={[]}
+                      typeConfig={{}}
+                      className="border-0 shadow-none h-full"
+                      title="Service IDs"
+                      description="Status and Renewal Process"
+                    />
+                  </div>
+                  <div className="md:col-span-2 col-span-1 min-h-[350px]">
+                    <MonthlyCertificateBarChart
+                      data={months.map((month, idx) => {
+                        const expiring = filteredServiceIds.filter(svc => {
+                          if (!svc.expDate) return false
+                          const validTo = new Date(svc.expDate)
+                          const days = getServiceIdDaysUntilExpiration(svc.expDate)
+                          return validTo.getFullYear() === currentYear && validTo.getMonth() === idx && days !== null && days > 0
+                        }).length
+                        const expired = filteredServiceIds.filter(svc => {
+                          if (!svc.expDate) return false
+                          const validTo = new Date(svc.expDate)
+                          const days = getServiceIdDaysUntilExpiration(svc.expDate)
+                          return validTo.getFullYear() === currentYear && validTo.getMonth() === idx && days !== null && days <= 0
+                        }).length
+                        return { month, expiring, expired }
+                      })}
+                      config={{
+                        expiring: { label: 'Expiring', color: '#fbbf24' },
+                        expired: { label: 'Expired', color: '#ef4444' }
+                      }}
+                      className="border-0 shadow-none h-full"
+                    />
+                  </div>
+                  <div className="col-span-1 min-h-[350px]">
+                    <UpcomingCertificateExpirations
+                      items={filteredServiceIds
+                        .map(svc => ({ cn: svc.svcid, days: getServiceIdDaysUntilExpiration(svc.expDate) }))
+                        .sort((a, b) => {
+                          if (a.days === null) return 1
+                          if (b.days === null) return -1
+                          return a.days - b.days
+                        })
+                        .slice(0, 10)
+                      }
+                      type="service-id"
+                      className="border-0 shadow-none h-full"
+                    />
+                  </div>
+                </div>
+                <CertificatesPerApplicationBarChart
+                  data={(() => {
+                    const appStatusMap: Record<string, { active: number; pending: number; expired: number }> = {}
+                    filteredServiceIds.forEach(svc => {
+                      const app = svc.application || 'Unknown'
+                      if (!appStatusMap[app]) appStatusMap[app] = { active: 0, pending: 0, expired: 0 }
+                      if (svc.status === 'Pending') appStatusMap[app].pending++
+                      else if (svc.status === 'Expired') appStatusMap[app].expired++
+                      else appStatusMap[app].active++
+                    })
+                    return Object.entries(appStatusMap).map(([application, counts]) => ({ application, ...counts }))
+                  })()}
+                  config={{
                     active: { label: 'Active', color: '#22c55e' },
                     pending: { label: 'Pending', color: '#fbbf24' },
                     expired: { label: 'Expired', color: '#ef4444' }
                   }}
-                  renewalData={[
-                    { status: 'automated', value: filteredServiceIds.filter(svc => svc.renewalProcess === 'Automated').length },
-                    { status: 'manual', value: filteredServiceIds.filter(svc => svc.renewalProcess === 'Manual').length }
-                  ]}
-                  renewalConfig={{
-                    automated: { label: 'Automated', color: '#0ea5e9' },
-                    manual: { label: 'Manual', color: '#fbbf24' }
-                  }}
-                  typeData={[]}
-                  typeConfig={{}}
-                  className="border-0 shadow-none h-full"
-                  title="Service IDs"
-                  description="Status and Renewal Process"
+                  className="mt-4 border-0 shadow-none"
                 />
-              </div>
-              <div className="md:col-span-2 col-span-1 min-h-[350px]">
-                <MonthlyCertificateBarChart
-                  data={months.map((month, idx) => {
-                    const expiring = filteredServiceIds.filter(svc => {
-                      if (!svc.expDate) return false
-                      const validTo = new Date(svc.expDate)
-                      const days = getServiceIdDaysUntilExpiration(svc.expDate)
-                      return validTo.getFullYear() === currentYear && validTo.getMonth() === idx && days !== null && days > 0
-                    }).length
-                    const expired = filteredServiceIds.filter(svc => {
-                      if (!svc.expDate) return false
-                      const validTo = new Date(svc.expDate)
-                      const days = getServiceIdDaysUntilExpiration(svc.expDate)
-                      return validTo.getFullYear() === currentYear && validTo.getMonth() === idx && days !== null && days <= 0
-                    }).length
-                    return { month, expiring, expired }
-                  })}
-                  config={{
-                    expiring: { label: 'Expiring', color: '#fbbf24' },
-                    expired: { label: 'Expired', color: '#ef4444' }
-                  }}
-                  className="border-0 shadow-none h-full"
-                />
-              </div>
-              <div className="col-span-1 min-h-[350px]">
-                <UpcomingCertificateExpirations
-                  items={filteredServiceIds
-                    .map(svc => ({ cn: svc.svcid, days: getServiceIdDaysUntilExpiration(svc.expDate) }))
-                    .sort((a, b) => {
-                      if (a.days === null) return 1
-                      if (b.days === null) return -1
-                      return a.days - b.days
-                    })
-                    .slice(0, 10)
-                  }
-                  className="border-0 shadow-none h-full"
-                />
-              </div>
-            </div>
-            <CertificatesPerApplicationBarChart
-              data={(() => {
-                const appStatusMap: Record<string, { active: number; pending: number; expired: number }> = {}
-                filteredServiceIds.forEach(svc => {
-                  const app = svc.application || 'Unknown'
-                  if (!appStatusMap[app]) appStatusMap[app] = { active: 0, pending: 0, expired: 0 }
-                  if (svc.status === 'Pending') appStatusMap[app].pending++
-                  else if (svc.status === 'Expired') appStatusMap[app].expired++
-                  else appStatusMap[app].active++
-                })
-                return Object.entries(appStatusMap).map(([application, counts]) => ({ application, ...counts }))
-              })()}
-              config={{
-                active: { label: 'Active', color: '#22c55e' },
-                pending: { label: 'Pending', color: '#fbbf24' },
-                expired: { label: 'Expired', color: '#ef4444' }
-              }}
-              className="mt-4 border-0 shadow-none"
-            />
+              </>
+            )}
           </CardContent>
         </Card>
 

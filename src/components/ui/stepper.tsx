@@ -38,7 +38,7 @@ const Stepper = React.forwardRef<HTMLDivElement, StepperProps>(
         <div
           ref={ref}
           className={cn(
-            "flex items-center gap-2 data-[orientation=horizontal]:flex-row data-[orientation=vertical]:flex-col",
+            "flex w-full items-center justify-between gap-2",
             className
           )}
           data-orientation="horizontal"
@@ -63,7 +63,10 @@ const StepperItem = React.forwardRef<
     <StepperItemContext.Provider value={step}>
       <div
         ref={ref}
-        className={cn("group/stepper relative flex items-center gap-2", className)}
+        className={cn(
+          "group/stepper relative flex flex-1 items-center",
+          className
+        )}
         data-state={state}
         {...props}
       >
@@ -86,7 +89,7 @@ const StepperTrigger = React.forwardRef<
       ref={ref}
       type="button"
       className={cn(
-        "group/trigger flex items-center gap-2 rounded-md p-2 text-sm font-medium ring-offset-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&:has([data-state=checked])]:bg-accent",
+        "group/trigger flex w-full items-center justify-center rounded-md p-2 text-sm font-medium ring-offset-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       onClick={() => onChange?.(step)}
@@ -111,7 +114,7 @@ const StepperIndicator = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-medium ring-offset-background transition-colors",
+        "relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-medium ring-offset-background transition-colors",
         state === "active" && "border-primary bg-primary text-primary-foreground",
         state === "completed" && "border-primary bg-primary text-primary-foreground",
         className
@@ -169,8 +172,9 @@ const StepperSeparator = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "absolute left-10 right-0 top-4 h-[2px] -translate-y-1/2 bg-border",
+        "absolute inset-x-0 top-3 left-[calc(50%+0.75rem+0.125rem)] -order-1 m-0 -translate-y-1/2 h-[2px] bg-border",
         step < value && "bg-primary",
+        "group-data-[orientation=horizontal]/stepper:w-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=horizontal]/stepper:flex-none",
         className
       )}
       {...props}

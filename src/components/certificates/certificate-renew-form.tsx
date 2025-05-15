@@ -24,7 +24,7 @@ import { useTeamStore } from '@/store/team-store'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCertificates } from '@/hooks/use-certificates'
 import { useNavigate } from '@tanstack/react-router'
-import { AdvancedDatePicker } from '@/components/ui/advanced-date-picker'
+import { CopyButton } from '@/components/ui/copy-button'
 
 // Define form value types
 interface RenewalFormValues {
@@ -68,21 +68,6 @@ interface CertSearchResponse {
   body: {
     result: CertSearchResult[]
   }
-}
-
-// Add this interface to fix type issue
-interface CertificatePayload {
-  serialNumber: string
-  changeNumber: string
-  commonName: string
-  expiryDate: string
-  checklist: string
-  comment: string
-  currentStatus: string
-  renewalDate: string
-  renewedBy: string
-  validTo: string
-  withPlanning?: boolean
 }
 
 // Animation variants
@@ -248,9 +233,6 @@ export function CertificateRenewForm({
   }
 
   const onSubmit: SubmitHandler<RenewalFormValues> = async (values) => {
-    console.log("Form submission values:", values)
-    console.log("Expiry date:", values.expiryDate)
-    
     if (!certificate?.certificateIdentifier) {
       setApiError('Certificate identifier is missing')
       return
@@ -288,12 +270,8 @@ export function CertificateRenewForm({
         ? format(values.expiryDate, 'yyyy-MM-dd')
         : ""
       
-      // Get renewingTeamName from team store
-      const { selectedTeam } = useTeamStore.getState()
-      const renewingTeamName = selectedTeam || certificate.renewingTeamName || certificate.hostingTeamName || "enterprise-security"
-      
       // Prepare payload for API call
-      const payload: CertificatePayload = {
+      const payload = {
         serialNumber: values.serialNumber,
         changeNumber: values.changeNumber || '',
         commonName: certificate.commonName,
@@ -303,109 +281,42 @@ export function CertificateRenewForm({
         currentStatus: "pending",
         renewalDate: renewalDate,
         renewedBy: "",
-        validTo: validTo
+        validTo: validTo,
+        withPlanning: true // Add flag for planning
       }
       
+      console.log('Certificate renewal payload:', payload)
+      
+      // Send the API request
+      const res = await fetch(CERTIFICATE_RENEW_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+      
+      if (!res.ok) {
+        updateStepStatus('initiate', 'error')
+        let errorText = ''
+        try {
+          errorText = await res.text()
+        } catch {}
+        throw new Error(errorText || `Failed to add certificate to planning: ${res.status} ${res.statusText}`)
+      }
+      
+      // Mark first step as completed
+      updateStepStatus('initiate', 'completed')
+      
       if (withPlanning) {
-        // Add flag for planning
-        payload.withPlanning = true
-        
-        console.log('Certificate planning payload:', payload)
-        
-        // Send the API request for planning
-        const res = await fetch(CERTIFICATE_RENEW_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        })
-        
-        if (!res.ok) {
-          updateStepStatus('initiate', 'error')
-          let errorText = ''
-          try {
-            errorText = await res.text()
-          } catch {}
-          throw new Error(errorText || `Failed to add certificate to planning: ${res.status} ${res.statusText}`)
-        }
-        
-        // Mark first step as completed
-        updateStepStatus('initiate', 'completed')
-        
         // Handle planning flow success
         await handlePlanningSuccess()
       } else {
-        // Standard renewal flow (not planning)
-        console.log('Certificate renewal initiation payload:', payload)
-        
-        // Send the first request to initiate renewal
-        const initiateRes = await fetch(CERTIFICATE_RENEW_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        })
-        
-        if (!initiateRes.ok) {
-          updateStepStatus('initiate', 'error')
-          let errorText = ''
-          try {
-            errorText = await initiateRes.text()
-          } catch {}
-          throw new Error(errorText || `Failed to initiate certificate renewal: ${initiateRes.status} ${initiateRes.statusText}`)
-        }
-        
-        // Parse response to get renewId for second step
-        const initiateData = await initiateRes.json()
+        // Handle immediate renewal flow (existing code)
+        const initiateData = await res.json()
         
         if (!initiateData.renewId) {
-          updateStepStatus('initiate', 'error')
           throw new Error('Failed to get renewal ID from server response')
-        }
-        
-        // Mark first step as completed and start second step
-        updateStepStatus('initiate', 'completed')
-        updateStepStatus('complete', 'in-progress')
-        
-        console.log('Renewal initiated successfully with ID:', initiateData.renewId)
-        
-        // Step 2: Second API call to complete renewal
-        const completePayload = {
-          id: initiateData.renewId,
-          commonName: certificate.commonName,
-          serialNumber: values.serialNumber,
-          changeNumber: values.changeNumber || '',
-          renewalDate: renewalDate,
-          renewedBy: "",
-          currentStatus: "completed",
-          validTo: validTo,
-          checklist: "1,1,1,1,1,1,1,1,1,1,1,1",
-          underRenewal: true,
-          comment: values.comment || "Certificate renewal completed"
-        }
-        
-        console.log('Certificate renewal completion payload:', completePayload)
-        
-        // Send the second request to complete renewal
-        const completeRes = await fetch(CERTIFICATE_RENEW_API, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(completePayload)
-        })
-        
-        console.log('Second API call response status:', completeRes.status)
-        
-        if (!completeRes.ok) {
-          updateStepStatus('complete', 'error')
-          let errorText = ''
-          try {
-            errorText = await completeRes.text()
-          } catch {}
-          throw new Error(errorText || `Failed to complete certificate renewal: ${completeRes.status} ${completeRes.statusText}`)
         }
         
         // Mark second step as completed and start refresh step
@@ -413,7 +324,7 @@ export function CertificateRenewForm({
         updateStepStatus('refresh', 'in-progress')
         
         // Get the success message directly from the text response
-        const successMessage = await completeRes.text()
+        const successMessage = await res.text()
         
         // Handle successful renewal
         await handleRenewalSuccess(successMessage)
@@ -451,22 +362,12 @@ export function CertificateRenewForm({
     defaultValues: {
       serialNumber: '',
       changeNumber: '',
-      expiryDate: undefined,
+      expiryDate: new Date(),
       selectedCertificateId: '',
       comment: 'Renewed the certificate',
     },
-    mode: 'onChange',
   })
   
-  // Register expiryDate field for non-Amex certificates
-  React.useEffect(() => {
-    if (isNonAmexCert) {
-      register('expiryDate', { 
-        required: 'Expiry Date is required for Non-Amex certificates' 
-      })
-    }
-  }, [isNonAmexCert, register])
-
   // Watch form values
   const expiryDate = watch('expiryDate');
   const serialNumber = watch('serialNumber');
@@ -581,53 +482,24 @@ export function CertificateRenewForm({
     })
   }
 
-  // Update the handleDateChange function to ensure it works correctly
-  const handleDateChange = (date: Date | undefined) => {
-    console.log("Date changed in the form:", date)
-    
-    // Make sure we have a valid Date object or undefined
-    const validDate = date instanceof Date ? date : undefined
-    
-    setValue('expiryDate', validDate, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true, // Mark as touched to trigger validation
-    })
-    
-    // Force validation after date change
-    if (isNonAmexCert && !validDate) {
-      setApiError('Expiry date is required for Non-Amex certificates')
-    } else {
-      setApiError(null)
-    }
-    
-    handleFieldChange()
-  }
-
-  // Update the validateForm function to log more information
+  // Custom validation function
   const validateForm = (values: RenewalFormValues): boolean => {
-    console.log("Validating form values:", values)
-    let isValid = true
+    let isValid = true;
     
     // For all certificates, a serial number is required
     if (!values.serialNumber) {
-      console.log("Serial number missing")
-      isValid = false
+      isValid = false;
     }
     
     // For Non-Amex certificates, validTo date is required
     if (isNonAmexCert) {
       if (!values.expiryDate) {
-        console.log("Expiry date missing for non-Amex cert")
-        isValid = false
-      } else {
-        console.log("Expiry date is present:", values.expiryDate)
+        isValid = false;
       }
     }
     
-    console.log("Form validation result:", isValid)
-    return isValid
-  }
+    return isValid;
+  };
 
   if (!certificate) {
     return <div className="p-8 text-center text-muted-foreground">No certificate selected for renewal</div>
@@ -649,6 +521,15 @@ export function CertificateRenewForm({
     }
   };
   
+  // Handle date change
+  const handleDateChange = (date: Date | null) => {
+    setValue('expiryDate', date || undefined, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    handleFieldChange();
+  };
+
   // Check if a cert can be selected (not revoked, not expired, not current cert)
   const canSelectCertificate = (cert: CertSearchResult): boolean => {
     return cert.certificateStatus !== 'Revoked' && 
@@ -656,7 +537,7 @@ export function CertificateRenewForm({
            cert.serialNumber !== certificate.serialNumber;
   }
   
-  // Function to handle successful renewal - this was likely missing or modified
+  // Keep the original handleRenewalSuccess function
   const handleRenewalSuccess = React.useCallback(async (message: string) => {
     try {
       console.log('Handling successful renewal...')
@@ -699,12 +580,12 @@ export function CertificateRenewForm({
   }, [refetchCertificates, closeDrawer, onCertificateRenewed, onSuccess])
 
   return (
-    <form ref={drawerRef} onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-6">
+    <form ref={drawerRef} onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-4">
       <AnimatePresence>
         {apiError && (
           <MotionAlert 
             variant="destructive" 
-            className="mb-4"
+            className="mb-2"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -717,69 +598,75 @@ export function CertificateRenewForm({
       </AnimatePresence>
       
       <motion.div 
-        className="mb-2"
         initial="hidden"
         animate="visible"
         variants={fadeIn}
       >
-        <h3 className="text-base font-medium mb-2">
-          Certificate Renewal
-        </h3>
-        <p className="text-muted-foreground text-sm mb-4">
-          Renew the certificate by providing a new serial number
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-medium">Certificate Details</h3>
+          <Badge variant="outline" className={cn(
+            "gap-1 items-center",
+            certificate.isAmexCert === 'Yes' 
+              ? "bg-blue-50 text-blue-700 border-blue-200" 
+              : "bg-green-50 text-green-700 border-green-200"
+          )}>
+            {certificate.isAmexCert === 'Yes' ? 'Amex' : 'Non-Amex'} Certificate
+          </Badge>
+        </div>
 
-        <MotionAlert 
-          className="mb-4"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <InfoIcon className="h-4 w-4" />
-          <AlertTitle>Certificate Information</AlertTitle>
-          <AlertDescription className="mt-2">
-            <motion.div 
-              className="space-y-2 text-sm"
-              variants={staggerChildren}
-              initial="hidden"
-              animate="visible"
-            >
-              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
-                <span className="font-medium">Certificate:</span>
-                <span className="font-semibold">{certificate.commonName}</span>
-              </motion.div>
-              
-              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
-                <span className="font-medium">Current Serial #:</span>
-                <span className="font-mono text-xs">{certificate.serialNumber}</span>
-              </motion.div>
-              
-              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
-                <span className="font-medium">Type:</span>
-                <span>{certificate.certType || 'N/A'}</span>
-              </motion.div>
-              
-              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
-                <span className="font-medium">Amex Certificate:</span>
-                <span>{certificate.isAmexCert}</span>
-              </motion.div>
-              
-              <motion.div className="grid grid-cols-2 gap-1" variants={itemVariants}>
-                <span className="font-medium">Current Expiry:</span>
-                <span>{expiryDateDisplay}</span>
-              </motion.div>
-            </motion.div>
+        <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border mb-6">
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm text-muted-foreground">Current Serial #</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="font-mono text-sm">{certificate.serialNumber}</p>
+                <CopyButton value={certificate.serialNumber || ''} tooltipMessage="Copy serial number" />
+              </div>
+            </div>
             
-            <motion.div 
-              className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-400"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              The certificate will be renewed with the new details you provide below.
-            </motion.div>
-          </AlertDescription>
-        </MotionAlert>
+            <div>
+              <span className="text-sm text-muted-foreground">Type</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-sm">{certificate.certType || 'N/A'}</p>
+                {certificate.certType && (
+                  <CopyButton value={certificate.certType} tooltipMessage="Copy certificate type" />
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <span className="text-sm text-muted-foreground">Environment</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-sm capitalize">{certificate.environment || 'N/A'}</p>
+                {certificate.environment && (
+                  <CopyButton value={certificate.environment} tooltipMessage="Copy environment" />
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm text-muted-foreground">Current Expiry</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-sm">{expiryDateDisplay}</p>
+                {certificate.validTo && (
+                  <CopyButton value={expiryDateDisplay} tooltipMessage="Copy expiry date" />
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <span className="text-sm text-muted-foreground">Team</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-sm">{certificate.hostingTeamName || 'N/A'}</p>
+                {certificate.hostingTeamName && (
+                  <CopyButton value={certificate.hostingTeamName} tooltipMessage="Copy team name" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       <motion.div 
@@ -953,11 +840,21 @@ export function CertificateRenewForm({
                                     )}>
                                       Certificate {isSelected && "(Selected for Renewal)"}
                                     </div>
-                                    <div className={cn(
-                                      "font-mono text-xs mt-0.5",
-                                      isSelected ? "text-blue-600 font-bold" : "text-gray-600"
-                                    )}>
-                                      {cert.serialNumber}
+                                    <div className="flex items-center gap-1">
+                                      <div className={cn(
+                                        "font-mono text-xs mt-0.5",
+                                        isSelected ? "text-blue-600 font-bold" : "text-gray-600"
+                                      )}>
+                                        {cert.serialNumber}
+                                      </div>
+                                      <CopyButton 
+                                        value={cert.serialNumber} 
+                                        tooltipMessage="Copy serial number"
+                                        className="h-6 w-6"
+                                        onClick={(e) => {
+                                          e.stopPropagation(); // Prevent triggering certificate selection
+                                        }}
+                                      />
                                     </div>
                                   </div>
                                   <div className="flex gap-1">
@@ -975,21 +872,63 @@ export function CertificateRenewForm({
                                 </div>
                                 
                                 <div className="text-sm text-muted-foreground mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between items-center">
                                     <span className="text-xs">Status:</span>
-                                    <span className="text-xs font-medium">{cert.certificateStatus}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs font-medium">{cert.certificateStatus}</span>
+                                      <CopyButton 
+                                        value={cert.certificateStatus} 
+                                        tooltipMessage="Copy status"
+                                        className="h-5 w-5"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between items-center">
                                     <span className="text-xs">Expires:</span>
-                                    <span className="text-xs font-medium">{validToDate}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs font-medium">{validToDate}</span>
+                                      <CopyButton 
+                                        value={validToDate} 
+                                        tooltipMessage="Copy expiry date"
+                                        className="h-5 w-5"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between items-center">
                                     <span className="text-xs">Environment:</span>
-                                    <span className="text-xs font-medium">{cert.environment || 'N/A'}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs font-medium">{cert.environment || 'N/A'}</span>
+                                      {cert.environment && (
+                                        <CopyButton 
+                                          value={cert.environment} 
+                                          tooltipMessage="Copy environment"
+                                          className="h-5 w-5"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                          }}
+                                        />
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between items-center">
                                     <span className="text-xs">Issuer:</span>
-                                    <span className="text-xs font-medium">{cert.issuerCertAuthName}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-xs font-medium">{cert.issuerCertAuthName}</span>
+                                      <CopyButton 
+                                        value={cert.issuerCertAuthName} 
+                                        tooltipMessage="Copy issuer"
+                                        className="h-5 w-5"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -1119,20 +1058,16 @@ export function CertificateRenewForm({
                 Expiry Date <span className="text-red-500">*</span>
                 <span className="text-xs text-muted-foreground ml-1">(Required for Non-Amex certificates)</span>
               </label>
-              <div 
-                className={cn(
-                  "rounded-md",
-                  errors.expiryDate || (!expiryDate && isSubmitSuccessful) ? "ring-1 ring-red-500" : ""
-                )}
-              >
-                <AdvancedDatePicker
+              <div className={cn(
+                !expiryDate && "ring-1 ring-red-500 rounded-md"
+              )}>
+                <DatePicker
                   value={expiryDate}
                   onChange={handleDateChange}
                   placeholder="Select new expiry date"
-                  disabled={isSubmitting || isRenewing}
                 />
               </div>
-              {(errors.expiryDate || (!expiryDate && isSubmitSuccessful)) && (
+              {!expiryDate && (
                 <motion.p 
                   className="text-xs text-red-500 mt-1"
                   initial={{ opacity: 0 }}

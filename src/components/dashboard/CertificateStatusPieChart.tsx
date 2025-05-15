@@ -1,8 +1,17 @@
 import * as React from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { PieChart, Pie, Cell, Label } from 'recharts'
+import { cn } from '@/lib/utils'
+
+// Define blue color palette for charts
+const BLUE_COLORS = [
+  '#0ea5e9', // sky blue
+  '#2563eb', // blue
+  '#3b82f6', // primary blue
+  '#1d4ed8', // darker blue
+  '#0284c7', // light blue
+];
 
 export interface CertificateStatusPieChartProps {
   statusData: { status: string; value: number }[]
@@ -37,100 +46,123 @@ export function CertificateStatusPieChart({
   ]
   const [tab, setTab] = React.useState(tabOptions[0].key as 'status' | 'types' | 'renewal')
 
-  // Pie chart data/config for current tab
-  let pieData, pieConfig, tabDescription
+  // Get data for current tab
+  let pieData, tabDescription
   if (tab === 'status') {
     pieData = statusData
-    pieConfig = statusConfig
     tabDescription = 'Active, Pending, Expired'
   } else if (tab === 'renewal') {
     pieData = renewalData
-    pieConfig = renewalConfig
     tabDescription = 'Automated vs Manual'
   } else {
     pieData = typeData
-    pieConfig = typeConfig
     tabDescription = 'Distribution by Type'
   }
   const total = React.useMemo(() => pieData.reduce((acc, curr) => acc + curr.value, 0), [pieData])
 
+  // Get color for a specific item
+  const getItemColor = (index: number) => BLUE_COLORS[index % BLUE_COLORS.length]
+
   // Footer content for each tab
   const renderFooter = () => {
     if (tab === 'status') {
-      const getCount = (status: string) => statusData.find(d => d.status === status)?.value || 0
       return (
-        <div className="grid grid-cols-3 gap-2 w-full">
-          <div className="flex flex-col items-center">
-            <span className="text-xs text-muted-foreground">Active</span>
-            <span className="text-lg font-semibold">{getCount('active')}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs text-muted-foreground">Pending</span>
-            <span className="text-lg font-semibold">{getCount('pending')}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs text-muted-foreground">Expired</span>
-            <span className="text-lg font-semibold">{getCount('expired')}</span>
-          </div>
+        <div className="grid grid-cols-3 gap-1 w-full">
+          {statusData.map((entry, index) => (
+            <div key={entry.status} className="flex flex-col items-center">
+              <div className="flex items-center gap-1.5">
+                <div 
+                  className="w-2 h-2 rounded-full" 
+                  style={{ backgroundColor: getItemColor(index) }} 
+                />
+                <span className="text-xs text-muted-foreground">{statusConfig[entry.status]?.label || entry.status}</span>
+              </div>
+              <span className="text-sm font-semibold">{entry.value}</span>
+            </div>
+          ))}
         </div>
       )
     }
     if (tab === 'renewal') {
-      const getCount = (status: string) => renewalData.find(d => d.status === status)?.value || 0
       return (
-        <div className="grid grid-cols-2 gap-2 w-full">
-          <div className="flex flex-col items-center">
-            <span className="text-xs text-muted-foreground">Automated</span>
-            <span className="text-lg font-semibold">{getCount('automated')}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-xs text-muted-foreground">Manual</span>
-            <span className="text-lg font-semibold">{getCount('manual')}</span>
-          </div>
+        <div className="grid grid-cols-2 gap-1 w-full">
+          {renewalData.map((entry, index) => (
+            <div key={entry.status} className="flex flex-col items-center">
+              <div className="flex items-center gap-1.5">
+                <div 
+                  className="w-2 h-2 rounded-full" 
+                  style={{ backgroundColor: getItemColor(index) }} 
+                />
+                <span className="text-xs text-muted-foreground">{renewalConfig[entry.status]?.label || entry.status}</span>
+              </div>
+              <span className="text-sm font-semibold">{entry.value}</span>
+            </div>
+          ))}
         </div>
       )
     }
     // types
     return (
-      <div className="grid grid-cols-2 gap-2 w-full">
-        {typeData.map((entry, idx) => (
+      <div className="grid grid-cols-2 gap-1 w-full">
+        {typeData.slice(0, 4).map((entry, index) => (
           <div key={entry.type} className="flex flex-col items-center">
-            <span className="text-xs text-muted-foreground truncate max-w-[80px]">{typeConfig[entry.type]?.label || entry.type}</span>
-            <span className="text-lg font-semibold">{entry.value}</span>
+            <div className="flex items-center gap-1.5">
+              <div 
+                className="w-2 h-2 rounded-full" 
+                style={{ backgroundColor: getItemColor(index) }} 
+              />
+              <span className="text-xs text-muted-foreground truncate max-w-[80px]">{typeConfig[entry.type]?.label || entry.type}</span>
+            </div>
+            <span className="text-sm font-semibold">{entry.value}</span>
           </div>
         ))}
+        {typeData.length > 4 && (
+          <div className="flex flex-col items-center">
+            <span className="text-xs text-muted-foreground">Others</span>
+            <span className="text-sm font-semibold">{typeData.slice(4).reduce((acc, curr) => acc + curr.value, 0)}</span>
+          </div>
+        )}
       </div>
     )
   }
 
   return (
-    <Card className={className + ' flex flex-col'}>
-      <CardHeader className="items-center pb-0">
-        <CardTitle>{title}</CardTitle>
+    <Card className={cn('flex flex-col h-full', className)}>
+      <CardHeader className="items-center pb-1 pt-3 space-y-0.5">
         {tabOptions.length > 1 && (
           <Tabs value={tab} onValueChange={v => setTab(v as 'status' | 'types' | 'renewal')} className="w-full">
-            <TabsList className="mt-2 mb-2 w-full flex justify-center">
+            <TabsList className="mt-1 mb-1 w-full flex justify-center h-8">
               {tabOptions.map(opt => (
-                <TabsTrigger key={opt.key} value={opt.key}>{opt.label}</TabsTrigger>
+                <TabsTrigger key={opt.key} value={opt.key} className="text-xs py-1 px-2">{opt.label}</TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
         )}
-        <CardDescription>{tabDescription}</CardDescription>
+        <CardDescription className="text-xs">{tabDescription}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
-        <ChartContainer config={pieConfig} className="mx-auto aspect-square max-h-[250px]">
-          <PieChart>
-            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+      <CardContent className="flex-1 p-0 px-2 pt-2 pb-2 flex items-center justify-center">
+        <div className="mx-auto aspect-square max-h-[280px] w-full flex items-center justify-center">
+          <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }} width={280} height={280}>
             <Pie
               data={pieData}
-              dataKey={'value'}
+              dataKey="value"
               nameKey={tab === 'types' ? 'type' : 'status'}
-              innerRadius={60}
-              strokeWidth={5}
+              innerRadius={70}
+              outerRadius={110}
+              strokeWidth={3}
+              stroke="#fff"
               cx="50%"
               cy="50%"
             >
+              {pieData.map((entry, index) => (
+                <Cell 
+                  key={tab === 'types' 
+                    ? `cell-${(entry as any).type}` 
+                    : `cell-${(entry as any).status}`
+                  }
+                  fill={getItemColor(index)}
+                />
+              ))}
               <Label
                 content={({ viewBox }) => {
                   if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
@@ -139,7 +171,7 @@ export function CertificateStatusPieChart({
                         <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl font-bold">
                           {total}
                         </tspan>
-                        <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 24} className="fill-muted-foreground">
+                        <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 24} className="fill-muted-foreground text-sm">
                           {tab === 'renewal' ? 'Service IDs' : 'Certs'}
                         </tspan>
                       </text>
@@ -147,17 +179,11 @@ export function CertificateStatusPieChart({
                   }
                 }}
               />
-              {pieData.map((entry, idx) => (
-                <Cell
-                  key={tab === 'types' ? `cell-${(entry as any).type}` : `cell-${(entry as any).status}`}
-                  fill={pieConfig[tab === 'types' ? (entry as any).type : (entry as any).status]?.color || '#8884d8'}
-                />
-              ))}
             </Pie>
           </PieChart>
-        </ChartContainer>
+        </div>
       </CardContent>
-      <CardFooter className="border-t pt-4 mt-2">{renderFooter()}</CardFooter>
+      <CardFooter className="border-t pt-2 pb-2 px-2 mt-0">{renderFooter()}</CardFooter>
     </Card>
   )
 } 
