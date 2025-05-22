@@ -1,5 +1,6 @@
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
 
 import { cn } from "@/lib/utils"
 
@@ -348,4 +349,10 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip
 }

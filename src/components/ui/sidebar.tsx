@@ -4,7 +4,7 @@ import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority"
 import type { VariantProps } from "class-variance-authority"
-import { PanelLeftIcon, LayoutDashboard, KeyRound, Calendar, UserCog, FileText, LogOut } from "lucide-react"
+import { PanelLeftIcon, LayoutDashboard, KeyRound, Calendar, UserCog, FileText, LogOut, BarChart } from "lucide-react"
 import { Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -708,6 +708,7 @@ const navItems = [
   { label: 'Certificate', to: '/certificates', icon: FileText },
   { label: 'Service ID', to: '/serviceid', icon: KeyRound },
   { label: 'Planning', to: '/planning', icon: Calendar },
+  { label: 'Reports', to: '/reports', icon: BarChart },
   { label: 'Admin', to: '/admin', icon: UserCog },
 ]
 

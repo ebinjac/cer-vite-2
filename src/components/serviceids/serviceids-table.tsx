@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table'
-import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, RefreshCcw } from 'lucide-react'
+import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, RefreshCcw, MoreVertical, Eye, Pencil, History, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { motion, AnimatePresence } from 'framer-motion'
@@ -69,6 +69,20 @@ import {
 } from '@/hooks/use-serviceids'
 import { useTeamStore } from '@/store/team-store'
 import { cn } from '@/lib/utils'
+import {
+  Drawer,
+  DrawerTrigger,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from '@/components/ui/drawer'
+
+import { useServiceIds } from '@/hooks/use-serviceids'
+import ServiceIdForm from './serviceid-form'
+import BulkServiceIdUpload from './bulk-serviceid-upload'
+import { ServiceIdDetailsModal } from "./serviceid-details-modal"
+import ServiceIdUpdateForm from './serviceid-update-form'
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -172,7 +186,8 @@ function safeDate(dateString: any): string {
 // Improved formatDate with safety checks
 function formatDate(dateString: any): string {
   try {
-    return originalFormatDate(dateString);
+    const formatted = originalFormatDate(dateString);
+    return formatted ?? safeDate(dateString);
   } catch (error) {
     return safeDate(dateString);
   }
@@ -803,6 +818,8 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
   })
   const [tempColumnVisibility, setTempColumnVisibility] = React.useState<ColumnVisibilityState>(columnVisibility)
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
+  const [selectedServiceId, setSelectedServiceId] = React.useState<ServiceId | null>(null)
+  const [showDetails, setShowDetails] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -858,7 +875,7 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
   
   // Replace the availableCertStatuses
   const availableCustomStatuses = React.useMemo<ServiceIdCustomStatus[]>(() => {
-    return ['Valid', 'Expiring Soon', 'Non-Compliant'];
+    return ['Valid', 'Expiring Soon', 'Non-Compliant', 'Unknown'];
   }, []);
 
   const availableStatuses = React.useMemo(() => {
@@ -1007,7 +1024,7 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
               whileHover="hover"
               variants={statusBadgeVariants}
             >
-              {customStatusIcons[status] && (
+              {status && customStatusIcons[status] && (
                 <span className="mr-1">{customStatusIcons[status]}</span>
               )}
               {status}
@@ -1016,11 +1033,15 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
         );
       },
       accessorFn: (row) => {
-        // Create accessor function to make sorting work properly
         const expDate = row.expDate;
         const status = getServiceIdCustomStatus(expDate);
-        // Define the order: Valid (0), Expiring Soon (1), Non-Compliant (2)
-        const statusOrder = { 'Valid': 0, 'Expiring Soon': 1, 'Non-Compliant': 2 };
+        const statusOrder: Record<ServiceIdCustomStatus, number> = {
+          'Valid': 0,
+          'Expiring Soon': 1,
+          'Non-Compliant': 2,
+          'Unknown': 3,
+          'Expired': 4
+        };
         return statusOrder[status];
       },
       enableSorting: true,
@@ -1148,21 +1169,22 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
         </Button>
       ),
       cell: ({ row }) => {
-        const status = row.original.status as string;
+        const rawStatus = row.original.status;
+        const status = rawStatus as ServiceIdCustomStatus;
         return (
           <div className="flex items-center gap-2">
             <MotionBadge 
               variant="outline" 
-              className={statusColors[status]}
+              className={statusColors[rawStatus] ?? ""}
               initial="initial"
               animate="animate"
               whileHover="hover"
               variants={statusBadgeVariants}
             >
-              {statusIcons[status] && (
-                <span className="mr-1">{statusIcons[status]}</span>
+              {status && customStatusIcons[status] && (
+                <span className="mr-1">{customStatusIcons[status]}</span>
               )}
-              {status}
+              {rawStatus}
             </MotionBadge>
           </div>
         );
@@ -1228,27 +1250,66 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="12" cy="5" r="1" />
-                <circle cx="12" cy="19" r="1" />
-              </svg>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>View details</DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Renew</DropdownMenuItem>
-            <DropdownMenuItem>Revoke</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        const serviceId = row.original
+        const [showDetails, setShowDetails] = React.useState(false)
+        const [showUpdateDrawer, setShowUpdateDrawer] = React.useState(false)
+        const { refetch } = useServiceIds()
+
+        return (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem onClick={() => {
+                  setSelectedServiceId(serviceId)
+                  setShowDetails(true)
+                }}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowUpdateDrawer(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Update
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Renew
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Drawer open={showUpdateDrawer} onOpenChange={setShowUpdateDrawer} direction="right">
+              <DrawerContent className="max-w-lg ml-auto">
+                <DrawerHeader>
+                  <DrawerTitle>Update Service ID</DrawerTitle>
+                </DrawerHeader>
+                <div className="p-4">
+                  <ServiceIdUpdateForm 
+                    serviceId={serviceId}
+                    onSuccess={() => {
+                      setShowUpdateDrawer(false)
+                      refetch()
+                    }}
+                    onCancel={() => setShowUpdateDrawer(false)}
+                  />
+                </div>
+                <DrawerClose />
+              </DrawerContent>
+            </Drawer>
+          </>
+        )
+      },
       enableSorting: false,
     },
   ], [globalFilter])
@@ -1434,6 +1495,10 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
   // Calculate the number of active filters
   const hasActiveFilters = globalFilter || statusFilter.length > 0 || expirationFilter.length > 0
 
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = React.useState(false)
+  const [isBulkDrawerOpen, setIsBulkDrawerOpen] = React.useState(false)
+  const { refetch } = useServiceIds()
+
   if (isLoading) return (
     <MotionCard 
       className="shadow-sm border-border/40 p-8 flex items-center justify-center"
@@ -1519,14 +1584,53 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
             </CardDescription>
           </div>
           <div className="flex space-x-2">
-            <MotionButton 
-              variant="default" 
-              size="sm"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              Add Service ID
-            </MotionButton>
+            <Drawer open={isAddDrawerOpen} onOpenChange={setIsAddDrawerOpen} direction="right">
+              <DrawerTrigger asChild>
+                <MotionButton 
+                  variant="default" 
+                  size="sm"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Add Service ID
+                </MotionButton>
+              </DrawerTrigger>
+              <DrawerContent className="max-w-lg ml-auto">
+                <DrawerHeader>
+                  <DrawerTitle>Create New Service ID</DrawerTitle>
+                </DrawerHeader>
+                <div className="p-4">
+                  <ServiceIdForm onSuccess={() => {
+                    setIsAddDrawerOpen(false)
+                    if (refetch) refetch()
+                  }} />
+                </div>
+                <DrawerClose />
+              </DrawerContent>
+            </Drawer>
+            <Drawer open={isBulkDrawerOpen} onOpenChange={setIsBulkDrawerOpen} direction="right">
+              <DrawerTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-2"
+                >
+                  Bulk Upload
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="min-w-[90vw] max-w-[90vw] ml-auto">
+                <DrawerHeader>
+                  <DrawerTitle>Bulk Upload Service IDs</DrawerTitle>
+                </DrawerHeader>
+                <div className="p-4">
+                  <BulkServiceIdUpload onUploadSuccess={() => {
+                    setIsBulkDrawerOpen(false)
+                    if (refetch) refetch()
+                  }} />
+                </div>
+                <DrawerClose />
+              </DrawerContent>
+            </Drawer>
           </div>
         </div>
         
@@ -2068,6 +2172,12 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
           </MotionButton>
         </div>
       </CardFooter>
+      
+      <ServiceIdDetailsModal 
+        serviceId={selectedServiceId}
+        open={showDetails}
+        onOpenChange={setShowDetails}
+      />
     </MotionCard>
   )
 }

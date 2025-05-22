@@ -44,11 +44,11 @@ export function formatDate(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function getDaysUntilExpiration(validTo: string): number | null {
+export function getDaysUntilExpiration(validTo: string, referenceDate?: Date): number | null {
   if (!validTo) return null;
   
   const validToDate = new Date(validTo);
-  const today = new Date();
+  const today = referenceDate || new Date();
   
   // Clear time part for accurate day calculation
   validToDate.setHours(0, 0, 0, 0);
