@@ -7,6 +7,7 @@ import TanstackQueryLayout from '../integrations/tanstack-query/layout'
 
 import type { QueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/ui/sidebar'
+import { Preloader } from '@/components/ui/preloader'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -14,14 +15,17 @@ interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   component: () => (
-    <div className="flex min-h-screen w-full overflow-hidden">
-      <AppSidebar />
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden pl-16">
-        <Header />
-        <Outlet />
-        <TanStackRouterDevtools />
-        <TanstackQueryLayout />
+    <>
+      <Preloader />
+      <div className="flex min-h-screen w-full overflow-hidden">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col min-h-screen overflow-hidden pl-16">
+          <Header />
+          <Outlet />
+          <TanStackRouterDevtools />
+          <TanstackQueryLayout />
+        </div>
       </div>
-    </div>
+    </>
   ),
 })

@@ -129,7 +129,7 @@ export function AnimatedLogo() {
           cx="14.5"
           cy="82"
           r="2"
-          fill="#0066FF"
+          fill="#016fcf"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.9, duration: 0.2, type: "spring" }}
@@ -139,7 +139,7 @@ export function AnimatedLogo() {
           cx="83"
           cy="82"
           r="2"
-          fill="#0066FF"
+          fill="#016fcf"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 1.0, duration: 0.2, type: "spring" }}
@@ -173,18 +173,18 @@ export function AnimatedLogo() {
 
           {/* Blue gradients */}
           <linearGradient id="paint0_linear_9_135" x1="48.5" y1="0" x2="48.5" y2="92" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#0066FF" />
-            <stop offset="0.273156" stopColor="#0070FF" />
+            <stop stopColor="#016fcf" />
+            <stop offset="0.273156" stopColor="#3fa6f7" />
             <stop offset="0.453125" stopColor="#87C1FF" />
-            <stop offset="0.734375" stopColor="#0066FF" />
+            <stop offset="0.734375" stopColor="#016fcf" />
             <stop offset="0.9999" stopColor="#0058FA" />
             <stop offset="1" stopColor="#2990FF" />
           </linearGradient>
 
           <linearGradient id="paint1_linear_9_135" x1="48.5" y1="0" x2="48.5" y2="92" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#0066FF" />
-            <stop offset="0.869792" stopColor="#0066FF" stopOpacity="0.408542" />
-            <stop offset="1" stopColor="#0066FF" stopOpacity="0.32" />
+            <stop stopColor="#016fcf" />
+            <stop offset="0.869792" stopColor="#016fcf" stopOpacity="0.408542" />
+            <stop offset="1" stopColor="#016fcf" stopOpacity="0.32" />
           </linearGradient>
 
           <linearGradient
@@ -205,17 +205,17 @@ export function AnimatedLogo() {
           </linearGradient>
 
           <linearGradient id="paint4_linear_9_135" x1="15" y1="4" x2="15" y2="87.5" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#0066FF" />
+            <stop stopColor="#016fcf" />
             <stop offset="1" stopColor="#8BC3FF" />
           </linearGradient>
 
           <linearGradient id="paint5_linear_9_135" x1="83.5" y1="4" x2="83.5" y2="87.5" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#0066FF" />
+            <stop stopColor="#016fcf" />
             <stop offset="1" stopColor="white" />
           </linearGradient>
 
           <linearGradient id="paint6_linear_9_135" x1="6" y1="81.5" x2="89.5" y2="81.5" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#0066FF" />
+            <stop stopColor="#016fcf" />
             <stop offset="1" stopColor="#3D9AFF" />
           </linearGradient>
         </defs>
@@ -376,7 +376,7 @@ export function SmallAnimatedLogo() {
             cx="14.5"
             cy="82"
             r="1.5"
-            fill="#0066FF"
+            fill="#016fcf"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.9, duration: 0.2, type: "spring" }}
@@ -386,7 +386,7 @@ export function SmallAnimatedLogo() {
             cx="83"
             cy="82"
             r="1.5"
-            fill="#0066FF"
+            fill="#016fcf"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 1.0, duration: 0.2, type: "spring" }}
@@ -419,18 +419,18 @@ export function SmallAnimatedLogo() {
 
             {/* Blue gradients */}
             <linearGradient id="paint0_linear_small" x1="48.5" y1="0" x2="48.5" y2="92" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#0066FF" />
-              <stop offset="0.273156" stopColor="#0070FF" />
+              <stop stopColor="#016fcf" />
+              <stop offset="0.273156" stopColor="#3fa6f7" />
               <stop offset="0.453125" stopColor="#87C1FF" />
-              <stop offset="0.734375" stopColor="#0066FF" />
+              <stop offset="0.734375" stopColor="#016fcf" />
               <stop offset="0.9999" stopColor="#0058FA" />
               <stop offset="1" stopColor="#2990FF" />
             </linearGradient>
 
             <linearGradient id="paint1_linear_small" x1="48.5" y1="0" x2="48.5" y2="92" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#0066FF" />
-              <stop offset="0.869792" stopColor="#0066FF" stopOpacity="0.408542" />
-              <stop offset="1" stopColor="#0066FF" stopOpacity="0.32" />
+              <stop stopColor="#016fcf" />
+              <stop offset="0.869792" stopColor="#016fcf" stopOpacity="0.408542" />
+              <stop offset="1" stopColor="#016fcf" stopOpacity="0.32" />
             </linearGradient>
 
             <linearGradient
@@ -451,17 +451,17 @@ export function SmallAnimatedLogo() {
             </linearGradient>
 
             <linearGradient id="paint4_linear_small" x1="15" y1="4" x2="15" y2="87.5" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#0066FF" />
+              <stop stopColor="#016fcf" />
               <stop offset="1" stopColor="#8BC3FF" />
             </linearGradient>
 
             <linearGradient id="paint5_linear_small" x1="83.5" y1="4" x2="83.5" y2="87.5" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#0066FF" />
+              <stop stopColor="#016fcf" />
               <stop offset="1" stopColor="white" />
             </linearGradient>
 
             <linearGradient id="paint6_linear_small" x1="6" y1="81.5" x2="89.5" y2="81.5" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#0066FF" />
+              <stop stopColor="#016fcf" />
               <stop offset="1" stopColor="#3D9AFF" />
             </linearGradient>
           </defs>

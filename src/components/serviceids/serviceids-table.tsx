@@ -1258,13 +1258,13 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
 
         return (
           <>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
                   <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
+            </Button>
+          </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[160px]">
                 <DropdownMenuItem onClick={() => {
                   setSelectedServiceId(serviceId)
@@ -1281,13 +1281,13 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Renew
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
             <Drawer open={showUpdateDrawer} onOpenChange={setShowUpdateDrawer} direction="right">
               <DrawerContent className="max-w-lg ml-auto">
@@ -1586,14 +1586,14 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
           <div className="flex space-x-2">
             <Drawer open={isAddDrawerOpen} onOpenChange={setIsAddDrawerOpen} direction="right">
               <DrawerTrigger asChild>
-                <MotionButton 
-                  variant="default" 
-                  size="sm"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  Add Service ID
-                </MotionButton>
+            <MotionButton 
+              variant="default" 
+              size="sm"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Add Service ID
+            </MotionButton>
               </DrawerTrigger>
               <DrawerContent className="max-w-lg ml-auto">
                 <DrawerHeader>

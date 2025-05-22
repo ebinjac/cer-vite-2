@@ -11,9 +11,14 @@
     />
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
-    <title>Create TanStack App - cerser-vite</title>
+    <title>CERSER</title>
   </head>
   <body>
+    <div style="display: none" id="login_details">
+      <p id="username" th:text="${username}">ssha74</p>
+      <p id="isAdmin" th:text="${isAdmin}">true</p>
+      <p id="teamName" th:text="${teamName}">enterprise-security</p>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

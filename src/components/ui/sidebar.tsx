@@ -7,6 +7,8 @@ import type { VariantProps } from "class-variance-authority"
 import { PanelLeftIcon, LayoutDashboard, KeyRound, Calendar, UserCog, FileText, LogOut, BarChart } from "lucide-react"
 import { Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { getIsAdminFromDOM } from '@/lib/user-session'
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -715,6 +717,18 @@ const navItems = [
 export function AppSidebar() {
   // Force re-render on route change
   useRouterState({ select: state => state.location.pathname })
+
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    setIsAdmin(getIsAdminFromDOM())
+  }, [])
+
+  // Filter nav items based on isAdmin
+  const filteredNavItems = navItems.filter(item =>
+    item.label !== 'Admin' || isAdmin
+  )
+
   return (
     <aside
       className="fixed left-0 top-0 h-screen border-r border-border flex flex-col items-stretch z-30 bg-background select-none w-16"
@@ -727,7 +741,7 @@ export function AppSidebar() {
           </div>
           
           <nav className="flex flex-col gap-2">
-            {navItems.map(item => (
+            {filteredNavItems.map(item => (
               <SidebarNavItem key={item.to} item={item} />
             ))}
           </nav>
