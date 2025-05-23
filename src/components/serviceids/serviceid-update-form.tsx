@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { CalendarIcon } from 'lucide-react'
 import type { ServiceId } from '@/hooks/use-serviceids'
+import { useState, useEffect, useRef } from 'react'
 
 const serviceIdUpdateSchema = z.object({
   env: z.string().min(1, 'Environment is required'),
@@ -107,6 +108,64 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
     selectedTeam
   })
 
+  // Application dropdown logic (like CertificateAddDrawerForm)
+  const [appOptions, setAppOptions] = useState<string[]>([])
+  const [appLoading, setAppLoading] = useState(false)
+  const [appError, setAppError] = useState<string | null>(null)
+  const [appOpen, setAppOpen] = useState(false)
+  const hasUserChanged = useRef(false)
+
+  // When user changes the select, mark as changed
+  const handleAppChange = (value: string) => {
+    hasUserChanged.current = true
+    form.setValue('application', value)
+  }
+
+  useEffect(() => {
+    if (!appOpen || !selectedTeam) return
+    setAppLoading(true)
+    setAppError(null)
+    fetch(APPLICATION_LIST_API(selectedTeam))
+      .then(async res => {
+        if (!res.ok) throw new Error('Failed to fetch applications')
+        const text = await res.text()
+        let apps: string[] = []
+        try {
+          apps = JSON.parse(text)
+        } catch {
+          apps = text
+            .replace(/\[|\]/g, '')
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean)
+        }
+        // Ensure the current value is present for default selection
+        const currentValue = form.getValues('application')
+        if (currentValue && !apps.includes(currentValue)) {
+          apps = [currentValue, ...apps]
+        }
+        setAppOptions(apps)
+        setAppLoading(false)
+      })
+      .catch(err => {
+        setAppError(err.message || 'Failed to fetch applications')
+        setAppLoading(false)
+      })
+  }, [appOpen, selectedTeam])
+
+  // Ensure the current value is always selected if present in options
+  useEffect(() => {
+    const currentValue = form.getValues('application')
+    if (
+      appOptions.length > 0 &&
+      currentValue &&
+      !appOptions.includes(currentValue) &&
+      !hasUserChanged.current
+    ) {
+      form.setValue('application', appOptions[0])
+    }
+  }, [appOptions])
+
   async function onSubmit(data: ServiceIdUpdateValues) {
     try {
       const response = await fetch(`${SERVICEID_UPDATE_API}/${serviceId.svcid}`, {
@@ -170,31 +229,28 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
           render={({ field }) => (
             <FormItem>
               <FormLabel>Application</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select
+                onValueChange={handleAppChange}
+                value={form.getValues('application')}
+                open={appOpen}
+                onOpenChange={setAppOpen}
+              >
                 <FormControl>
-                  <SelectTrigger disabled={isLoadingApplications}>
-                    <SelectValue placeholder={
-                      isLoadingApplications 
-                        ? "Loading applications..." 
-                        : "Select application"
-                    } />
+                  <SelectTrigger disabled={appLoading}>
+                    <SelectValue placeholder={appLoading ? 'Loading applications...' : appError ? 'Failed to load applications' : 'Select application'} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {isLoadingApplications ? (
-                    <SelectItem value="loading" disabled>
-                      Loading...
-                    </SelectItem>
-                  ) : applications && applications.length > 0 ? (
-                    applications.map((app: string) => (
-                      <SelectItem key={app} value={app}>
-                        {app}
-                      </SelectItem>
+                  {appLoading ? (
+                    <SelectItem value="loading" disabled>Loading...</SelectItem>
+                  ) : appError ? (
+                    <SelectItem value="error" disabled>{appError}</SelectItem>
+                  ) : appOptions.length > 0 ? (
+                    appOptions.map(app => (
+                      <SelectItem key={app} value={app}>{app}</SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="no-apps" disabled>
-                      No applications found
-                    </SelectItem>
+                    <SelectItem value="no-apps" disabled>No applications found</SelectItem>
                   )}
                 </SelectContent>
               </Select>

@@ -24,4 +24,5 @@ export const AUDIT_LOGS_API = 'https://mocki.io/v1/68d0cf10-6ffc-4f81-b3f2-40be0
 
 // Add to existing exports
 export const SERVICEID_CREATE_API = '/api/onboard/serviceid'
-export const SERVICEID_UPDATE_API = '/api/onboard/serviceid' 
+export const SERVICEID_UPDATE_API = '/api/onboard/serviceid'
+export const SERVICEID_DELETE_API = (serviceId: string, environment: string) => `/api/v1/deletserviceid/${serviceId}/${environment}`

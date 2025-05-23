@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { CalendarIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 const serviceIdFormSchema = z.object({
   svcid: z.string().min(3, 'Service ID must be at least 3 characters'),
@@ -64,15 +65,38 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
     },
   })
 
-  const { data: applications, isLoading: isLoadingApplications } = useQuery({
-    queryKey: ['applications', selectedTeam],
-    queryFn: async () => {
-      const res = await fetch(`${APPLICATION_LIST_API}?team=${selectedTeam}`)
-      if (!res.ok) throw new Error('Failed to fetch applications')
-      return res.json()
-    },
-    enabled: !!selectedTeam,
-  })
+  // Application dropdown logic (like CertificateAddDrawerForm)
+  const [appOptions, setAppOptions] = useState<string[]>([])
+  const [appLoading, setAppLoading] = useState(false)
+  const [appError, setAppError] = useState<string | null>(null)
+  const [appOpen, setAppOpen] = useState(false)
+
+  useEffect(() => {
+    if (!appOpen || !selectedTeam) return
+    setAppLoading(true)
+    setAppError(null)
+    fetch(APPLICATION_LIST_API(selectedTeam))
+      .then(async res => {
+        if (!res.ok) throw new Error('Failed to fetch applications')
+        const text = await res.text()
+        let apps: string[] = []
+        try {
+          apps = JSON.parse(text)
+        } catch {
+          apps = text
+            .replace(/\[|\]/g, '')
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean)
+        }
+        setAppOptions(apps)
+        setAppLoading(false)
+      })
+      .catch(err => {
+        setAppError(err.message || 'Failed to fetch applications')
+        setAppLoading(false)
+      })
+  }, [appOpen, selectedTeam])
 
   async function onSubmit(data: ServiceIdFormValues) {
     try {
@@ -155,18 +179,29 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Application</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                open={appOpen}
+                onOpenChange={setAppOpen}
+              >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select application" />
+                    <SelectValue placeholder={appLoading ? 'Loading applications...' : appError ? 'Failed to load applications' : 'Select application'} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {applications?.map((app: string) => (
-                    <SelectItem key={app} value={app}>
-                      {app}
-                    </SelectItem>
-                  ))}
+                  {appLoading ? (
+                    <SelectItem value="loading" disabled>Loading...</SelectItem>
+                  ) : appError ? (
+                    <SelectItem value="error" disabled>{appError}</SelectItem>
+                  ) : appOptions.length > 0 ? (
+                    appOptions.map(app => (
+                      <SelectItem key={app} value={app}>{app}</SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-apps" disabled>No applications found</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />

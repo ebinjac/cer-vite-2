@@ -13,7 +13,7 @@ import {
 } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table'
-import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, RefreshCcw, MoreVertical, Eye, Pencil, History, Trash2 } from 'lucide-react'
+import { ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, X, CheckCircle, XCircle, Clock, RefreshCcw, MoreVertical, Eye, Pencil, History, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { motion, AnimatePresence } from 'framer-motion'
@@ -83,6 +83,18 @@ import ServiceIdForm from './serviceid-form'
 import BulkServiceIdUpload from './bulk-serviceid-upload'
 import { ServiceIdDetailsModal } from "./serviceid-details-modal"
 import ServiceIdUpdateForm from './serviceid-update-form'
+import { toast } from 'sonner'
+import { SERVICEID_DELETE_API } from '@/lib/api-endpoints'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Define motion components with proper typing
 const MotionBadge = motion(Badge)
@@ -1252,9 +1264,30 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
       id: 'actions',
       cell: ({ row }) => {
         const serviceId = row.original
-        const [showDetails, setShowDetails] = React.useState(false)
         const [showUpdateDrawer, setShowUpdateDrawer] = React.useState(false)
+        const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
+        const [isDeleting, setIsDeleting] = React.useState(false)
+        const [deleteError, setDeleteError] = React.useState<string | null>(null)
         const { refetch } = useServiceIds()
+
+        async function handleDelete() {
+          setIsDeleting(true)
+          setDeleteError(null)
+          try {
+            const res = await fetch(SERVICEID_DELETE_API(serviceId.svcid, serviceId.env), {
+              method: 'DELETE',
+            })
+            if (!res.ok) throw new Error('Failed to delete Service ID')
+            toast.success('Service ID deleted successfully')
+            setIsDeleteDialogOpen(false)
+            if (refetch) refetch()
+          } catch (err) {
+            setDeleteError('Failed to delete Service ID')
+            toast.error('Failed to delete Service ID')
+          } finally {
+            setIsDeleting(false)
+          }
+        }
 
         return (
           <>
@@ -1282,12 +1315,66 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
                   Renew
                 </DropdownMenuItem>
             <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteDialogOpen(true)}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Delete Service ID
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4">
+                <p>
+                  Are you sure you want to delete this Service ID? This action cannot be undone.
+                </p>
+                <div className="rounded-md border p-4 bg-muted/30">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[120px_1fr] gap-1">
+                      <span className="text-sm font-medium">Service ID:</span>
+                      <span className="text-sm font-semibold">{serviceId.svcid}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-1">
+                      <span className="text-sm font-medium">Environment:</span>
+                      <Badge variant="outline" className="w-fit">{serviceId.env}</Badge>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] gap-1">
+                      <span className="text-sm font-medium">Application:</span>
+                      <span className="text-sm font-mono">{serviceId.application}</span>
+                    </div>
+                  </div>
+                </div>
+                {deleteError && (
+                  <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
+                    {deleteError}
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete} 
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Service ID'
+                )}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
             <Drawer open={showUpdateDrawer} onOpenChange={setShowUpdateDrawer} direction="right">
               <DrawerContent className="max-w-lg ml-auto">
@@ -2176,7 +2263,10 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
       <ServiceIdDetailsModal 
         serviceId={selectedServiceId}
         open={showDetails}
-        onOpenChange={setShowDetails}
+        onOpenChange={open => {
+          setShowDetails(open)
+          if (!open) setSelectedServiceId(null)
+        }}
       />
     </MotionCard>
   )
