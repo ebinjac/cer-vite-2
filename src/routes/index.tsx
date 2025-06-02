@@ -448,7 +448,7 @@ function Dashboard() {
                         <TableHead className="font-semibold">Days Left</TableHead>
                         <TableHead className="font-semibold">Status</TableHead>
                         <TableHead className="font-semibold">
-                          {modalType === 'certificate' ? 'Purpose' : 'Application'}
+                          {modalType === 'certificate' ? 'Application' : 'Application'}
                         </TableHead>
                         <TableHead className="font-semibold">Environment</TableHead>
                       </TableRow>
@@ -489,11 +489,11 @@ function Dashboard() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {modalType === 'certificate' ? item.purpose : item.application}
+                              {modalType === 'certificate' ? item.applicationName : item.application}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                {item.env}
+                              {modalType === 'certificate' ? item.environment : item.env}
                               </Badge>
                             </TableCell>
                           </TableRow>

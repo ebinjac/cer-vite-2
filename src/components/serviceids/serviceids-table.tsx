@@ -83,6 +83,7 @@ import ServiceIdForm from './serviceid-form'
 import BulkServiceIdUpload from './bulk-serviceid-upload'
 import { ServiceIdDetailsModal } from "./serviceid-details-modal"
 import ServiceIdUpdateForm from './serviceid-update-form'
+import { ServiceIdRenewDrawer } from './serviceid-renew-drawer'
 import { toast } from 'sonner'
 import { SERVICEID_DELETE_API } from '@/lib/api-endpoints'
 import {
@@ -830,8 +831,8 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
   })
   const [tempColumnVisibility, setTempColumnVisibility] = React.useState<ColumnVisibilityState>(columnVisibility)
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
-  const [selectedServiceId, setSelectedServiceId] = React.useState<ServiceId | null>(null)
   const [showDetails, setShowDetails] = React.useState(false)
+  // const [isRenewDrawerOpen, setIsRenewDrawerOpen] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -1269,7 +1270,9 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
         const [isDeleting, setIsDeleting] = React.useState(false)
         const [deleteError, setDeleteError] = React.useState<string | null>(null)
         const { refetch } = useServiceIds()
-
+        // Add local state for renew drawer
+        const [isRenewDrawerOpen, setIsRenewDrawerOpen] = React.useState(false)
+        // Remove setSelectedServiceId and setIsRenewDrawerOpen from parent
         async function handleDelete() {
           setIsDeleting(true)
           setDeleteError(null)
@@ -1299,10 +1302,7 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
             </Button>
           </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[160px]">
-                <DropdownMenuItem onClick={() => {
-                  setSelectedServiceId(serviceId)
-                  setShowDetails(true)
-                }}>
+                <DropdownMenuItem onClick={() => setShowDetails(true)}>
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
@@ -1310,7 +1310,7 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
                   <Pencil className="mr-2 h-4 w-4" />
                   Update
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsRenewDrawerOpen(true)}>
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Renew
                 </DropdownMenuItem>
@@ -1396,6 +1396,14 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
                 <DrawerClose />
               </DrawerContent>
             </Drawer>
+
+            {/* Move ServiceIdRenewDrawer here, local to each row */}
+            <ServiceIdRenewDrawer
+              serviceId={serviceId}
+              open={isRenewDrawerOpen}
+              onOpenChange={setIsRenewDrawerOpen}
+              onServiceIdRenewed={refetch}
+            />
           </>
         )
       },
@@ -2267,16 +2275,13 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
       </CardFooter>
       
       <ServiceIdDetailsModal 
-        serviceId={selectedServiceId}
-        open={showDetails}
-        onOpenChange={open => {
-          setShowDetails(open)
-          if (!open) setSelectedServiceId(null)
-        }}
+        serviceId={null}
+        open={false}
+        onOpenChange={() => {}}
       />
     </MotionCard>
   )
 }
 
 // Export memoized component to prevent unnecessary re-renders from parent components
-export default React.memo(ServiceIdsTable); 
+export default React.memo(ServiceIdsTable);

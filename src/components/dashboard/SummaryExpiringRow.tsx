@@ -1,4 +1,4 @@
-import * as React from 'react'
+
 import { SummaryCard } from './SummaryCard'
 import { ExpiringGroupCard } from './ExpiringGroupCard'
 
