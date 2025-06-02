@@ -6,7 +6,6 @@ import * as z from 'zod'
 import { toast } from 'sonner'
 import { SERVICEID_UPDATE_API, APPLICATION_LIST_API } from '@/lib/api-endpoints'
 import { useTeamStore } from '@/store/team-store'
-import { useQuery } from '@tanstack/react-query'
 import {
   Form,
   FormControl,
@@ -15,7 +14,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -25,7 +23,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Loader2, CalendarIcon, Settings, Calendar as CalendarIconAlt, MessageSquare } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import {
   Popover,
@@ -34,9 +34,8 @@ import {
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
-import { CalendarIcon } from 'lucide-react'
 import type { ServiceId } from '@/hooks/use-serviceids'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 const serviceIdUpdateSchema = z.object({
   env: z.string().min(1, 'Environment is required'),
@@ -62,109 +61,77 @@ const normalizeEnvironment = (env: string): string => {
     'e1': 'E1',
     'e2': 'E2',
     'e3': 'E3',
+    'prod': 'E1',
+    'staging': 'E2'
   }
-  return envMap[env.toLowerCase()] || env
+  return envMap[env.toLowerCase()] || env.toUpperCase()
+}
+
+// Helper function to normalize renewal process value
+const normalizeRenewalProcess = (renewalProcess: string): string => {
+  if (!renewalProcess) return 'Manual'
+  const normalized = renewalProcess.toLowerCase().trim()
+  if (normalized === 'automated' || normalized === 'auto') return 'Automated'
+  if (normalized === 'manual' || normalized === 'man') return 'Manual'
+  // Handle exact matches
+  if (renewalProcess === 'Manual' || renewalProcess === 'Automated') return renewalProcess
+  return 'Manual' // Default fallback
 }
 
 export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: ServiceIdUpdateFormProps) {
   const { selectedTeam } = useTeamStore()
-
-  // Add debugging logs for selectedTeam
-  console.log('Selected Team:', selectedTeam)
+  const [appOptions, setAppOptions] = useState<string[]>([])
+  const [appLoading, setAppLoading] = useState(true)
+  const [appError, setAppError] = useState<string | null>(null)
 
   const form = useForm<ServiceIdUpdateValues>({
     resolver: zodResolver(serviceIdUpdateSchema),
     defaultValues: {
       env: normalizeEnvironment(serviceId.env),
       application: serviceId.application,
-      renewalProcess: serviceId.renewalProcess,
-      comment: serviceId.comment,
+      renewalProcess: normalizeRenewalProcess(serviceId.renewalProcess),
+      comment: serviceId.comment || '',
       expDate: serviceId.expDate ? new Date(serviceId.expDate) : undefined,
     },
   })
 
-  const { data: applications, isLoading: isLoadingApplications } = useQuery({
-    queryKey: ['applications', selectedTeam],
-    queryFn: async () => {
-      // Add debugging log for API URL
-      const apiUrl = `${APPLICATION_LIST_API}?team=${selectedTeam}`
-      console.log('API URL:', apiUrl)
-      
-      const res = await fetch(apiUrl)
-      if (!res.ok) throw new Error('Failed to fetch applications')
-      const data = await res.json()
-      
-      // Add debugging log for API response
-      console.log('Applications API Response:', data)
-      return data
-    },
-    enabled: !!selectedTeam,
-  })
-
-  // Add debugging log for applications query state
-  console.log('Applications Query State:', {
-    data: applications,
-    isLoading: isLoadingApplications,
-    selectedTeam
-  })
-
-  // Application dropdown logic (like CertificateAddDrawerForm)
-  const [appOptions, setAppOptions] = useState<string[]>([])
-  const [appLoading, setAppLoading] = useState(false)
-  const [appError, setAppError] = useState<string | null>(null)
-  const [appOpen, setAppOpen] = useState(false)
-  const hasUserChanged = useRef(false)
-
-  // When user changes the select, mark as changed
-  const handleAppChange = (value: string) => {
-    hasUserChanged.current = true
-    form.setValue('application', value)
-  }
-
+  // Fetch applications when component mounts or team changes
   useEffect(() => {
-    if (!appOpen || !selectedTeam) return
+    if (!selectedTeam) return
+    
     setAppLoading(true)
     setAppError(null)
-    fetch(APPLICATION_LIST_API(selectedTeam))
+    
+    fetch(`${APPLICATION_LIST_API}?team=${selectedTeam}`)
       .then(async res => {
         if (!res.ok) throw new Error('Failed to fetch applications')
         const text = await res.text()
         let apps: string[] = []
+        
         try {
           apps = JSON.parse(text)
         } catch {
           apps = text
-            .replace(/\[|\]/g, '')
+            .replace(/[\[\]]/g, '')
             .split(',')
             .map(t => t.trim())
             .filter(Boolean)
         }
-        // Ensure the current value is present for default selection
-        const currentValue = form.getValues('application')
-        if (currentValue && !apps.includes(currentValue)) {
-          apps = [currentValue, ...apps]
+        
+        // Ensure the current application is included in the options
+        if (serviceId.application && !apps.includes(serviceId.application)) {
+          apps = [serviceId.application, ...apps]
         }
+        
         setAppOptions(apps)
-        setAppLoading(false)
       })
       .catch(err => {
-        setAppError(err.message || 'Failed to fetch applications')
+        setAppError(err.message || 'Failed to load applications')
+      })
+      .finally(() => {
         setAppLoading(false)
       })
-  }, [appOpen, selectedTeam])
-
-  // Ensure the current value is always selected if present in options
-  useEffect(() => {
-    const currentValue = form.getValues('application')
-    if (
-      appOptions.length > 0 &&
-      currentValue &&
-      !appOptions.includes(currentValue) &&
-      !hasUserChanged.current
-    ) {
-      form.setValue('application', appOptions[0])
-    }
-  }, [appOptions])
+  }, [selectedTeam, serviceId.application])
 
   async function onSubmit(data: ServiceIdUpdateValues) {
     try {
@@ -175,6 +142,7 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
         },
         body: JSON.stringify({
           ...data,
+          id: serviceId.id,
           renewingTeamName: selectedTeam,
           expDate: format(data.expDate, 'yyyy-MM-dd'),
         }),
@@ -193,166 +161,223 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="flex items-center space-x-4 text-sm">
-          <span className="text-muted-foreground">Service ID:</span>
-          <span className="font-medium">{serviceId.svcid}</span>
+    <div className="max-w-2xl">
+      <div className="space-y-2 mb-6">
+        <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <Settings className="h-6 w-6" />
+          Update Service ID
+        </h2>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Service ID:</span>
+          <span className="font-mono font-medium text-foreground bg-muted px-2 py-1 rounded">{serviceId.svcid}</span>
         </div>
+      </div>
 
-        <FormField
-          control={form.control}
-          name="env"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Environment</FormLabel>
-              <Select onValueChange={field.onChange} value={normalizeEnvironment(field.value)}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select environment" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="E1">E1</SelectItem>
-                  <SelectItem value="E2">E2</SelectItem>
-                  <SelectItem value="E3">E3</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* Basic Configuration Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <Settings className="h-4 w-4" />
+              Basic Configuration
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="env"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Environment</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select environment" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="E1">E1 (Production)</SelectItem>
+                        <SelectItem value="E2">E2 (Staging)</SelectItem>
+                        <SelectItem value="E3">E3 (Development)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-        <FormField
-          control={form.control}
-          name="application"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Application</FormLabel>
-              <Select
-                onValueChange={handleAppChange}
-                value={form.getValues('application')}
-                open={appOpen}
-                onOpenChange={setAppOpen}
-              >
-                <FormControl>
-                  <SelectTrigger disabled={appLoading}>
-                    <SelectValue placeholder={appLoading ? 'Loading applications...' : appError ? 'Failed to load applications' : 'Select application'} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {appLoading ? (
-                    <SelectItem value="loading" disabled>Loading...</SelectItem>
-                  ) : appError ? (
-                    <SelectItem value="error" disabled>{appError}</SelectItem>
-                  ) : appOptions.length > 0 ? (
-                    appOptions.map(app => (
-                      <SelectItem key={app} value={app}>{app}</SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-apps" disabled>No applications found</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+              <FormField
+                control={form.control}
+                name="renewalProcess"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Renewal Process</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select renewal process" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Manual">Manual</SelectItem>
+                        <SelectItem value="Automated">Automated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        <FormField
-          control={form.control}
-          name="renewalProcess"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Renewal Process</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select renewal process" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="Manual">Manual</SelectItem>
-                  <SelectItem value="Automatic">Automatic</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="expDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Expiry Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP")
+            <FormField
+              control={form.control}
+              name="application"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Application</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={appLoading}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue 
+                          placeholder={
+                            appLoading 
+                              ? 'Loading applications...' 
+                              : appError 
+                                ? 'Failed to load applications' 
+                                : 'Select application'
+                          } 
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {appLoading ? (
+                        <SelectItem value="loading" disabled>
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading applications...
+                          </div>
+                        </SelectItem>
+                      ) : appError ? (
+                        <SelectItem value="error" disabled>
+                          {appError}
+                        </SelectItem>
+                      ) : appOptions.length > 0 ? (
+                        appOptions.map(app => (
+                          <SelectItem key={app} value={app}>
+                            {app}
+                          </SelectItem>
+                        ))
                       ) : (
-                        <span>Pick a date</span>
+                        <SelectItem value="no-apps" disabled>
+                          No applications found
+                        </SelectItem>
                       )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Expiry Configuration Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <CalendarIconAlt className="h-4 w-4" />
+              Expiry Configuration
+            </div>
+
+            <FormField
+              control={form.control}
+              name="expDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Expiry Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Additional Information Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <MessageSquare className="h-4 w-4" />
+              Additional Information
+            </div>
+
+            <FormField
+              control={form.control}
+              name="comment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Comment</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add any additional comments or notes about this service ID..."
+                      className="resize-none h-20"
+                      {...field}
+                    />
                   </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) =>
-                      date < new Date() || date < new Date("1900-01-01")
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-        <FormField
-          control={form.control}
-          name="comment"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Comment</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Add any additional comments"
-                  className="resize-none"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            Update Service ID
-          </Button>
-        </div>
-      </form>
-    </Form>
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-background py-4 border-t">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Update Service ID
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
   )
-} 
+}

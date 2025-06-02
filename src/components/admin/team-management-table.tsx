@@ -42,7 +42,7 @@ export function TeamManagementTable({ teams, onEdit }: TeamManagementTableProps)
         </TableHeader>
         <TableBody>
           {teams.map((team) => (
-            <TableRow key={team["1d"]}>
+            <TableRow key={team.id}>
               <TableCell className="sticky left-0 bg-background font-medium">
                 {team.teamName}
               </TableCell>

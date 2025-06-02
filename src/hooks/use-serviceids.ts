@@ -6,6 +6,7 @@ import { format } from "date-fns"
 
 // ServiceId type definition
 export interface ServiceId {
+  id: number
   svcid: string
   env: string
   application: string

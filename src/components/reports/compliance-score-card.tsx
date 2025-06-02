@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useTeamStore } from '@/store/team-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ExportReports } from './export-reports'
+import { ComplianceInfo } from './compliance-info'
 
 export function ComplianceScoreCard() {
   const { data: certificates } = useCertificates()
@@ -102,16 +103,23 @@ export function ComplianceScoreCard() {
       >
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <Gauge className="h-5 w-5 text-primary/60" />
-              Overall Compliance
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Gauge className="h-5 w-5 text-primary/60" />
+                Overall Compliance
+              </CardTitle>
+              <ComplianceInfo />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">Total Compliance Score</div>
-              <div className="text-xs text-muted-foreground">
-                Based on {certCounts.total + svcCounts.total} total items
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Based on {certCounts.total + svcCounts.total} total items:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>Certificates: {certCounts.compliant} compliant, {certCounts.expiringSoon} expiring soon, {certCounts.expired} expired</li>
+                  <li>Service IDs: {svcCounts.compliant} compliant, {svcCounts.expiringSoon} expiring soon, {svcCounts.expired} expired</li>
+                </ul>
               </div>
               <div className="relative h-3 overflow-hidden rounded-full bg-secondary/20">
                 <motion.div

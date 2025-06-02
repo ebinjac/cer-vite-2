@@ -4,10 +4,11 @@ import { Badge } from '@/components/ui/badge'
 import { useTeamStore } from '@/store/team-store'
 import { useCertificates, getDaysUntilExpiration } from '@/hooks/use-certificates'
 import { useServiceIds } from '@/hooks/use-serviceids'
-import { ShieldCheck, ServerCog, AlertTriangle, XCircle, PieChart } from "lucide-react"
+import { ShieldCheck, ServerCog, AlertTriangle, XCircle, PieChart, InfoIcon } from "lucide-react"
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { ComplianceInfo } from './compliance-info'
 
 interface ComplianceItem {
   category: string
@@ -81,10 +82,13 @@ export function ComplianceBreakdown() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <PieChart className="h-5 w-5 text-primary" />
-          Compliance Breakdown
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <PieChart className="h-5 w-5 text-primary" />
+            Compliance Breakdown
+          </CardTitle>
+          <ComplianceInfo />
+        </div>
         <CardDescription>
           Detailed compliance metrics by category
           {selectedTeam ? ` for ${selectedTeam}` : ''}
@@ -116,6 +120,44 @@ export function ComplianceBreakdown() {
               </Badge>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-emerald-50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  <span className="text-sm font-medium text-emerald-700">Fully Compliant</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-semibold text-emerald-700">{item.compliant}</span>
+                  <span className="text-sm text-emerald-600">items</span>
+                </div>
+                <p className="text-xs text-emerald-600 mt-1">More than 30 days until expiration</p>
+              </div>
+
+              <div className="bg-amber-50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-700">Expiring Soon</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-semibold text-amber-700">{item.expiringSoon}</span>
+                  <span className="text-sm text-amber-600">items</span>
+                </div>
+                <p className="text-xs text-amber-600 mt-1">30 days or less until expiration</p>
+              </div>
+
+              <div className="bg-destructive/10 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <XCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">Expired</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-semibold text-destructive">{item.expired}</span>
+                  <span className="text-sm text-destructive/80">items</span>
+                </div>
+                <p className="text-xs text-destructive/80 mt-1">Already expired</p>
+              </div>
+            </div>
+
             <div className="relative h-2 overflow-hidden rounded-full bg-secondary/20">
               <motion.div
                 className={cn(
@@ -131,41 +173,8 @@ export function ComplianceBreakdown() {
               />
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                <div className="text-sm text-muted-foreground">Total</div>
-                <div className="text-2xl font-semibold">{item.total}</div>
-              </div>
-              
-              <div className="space-y-1.5">
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                  Compliant
-                </div>
-                <div className="text-2xl font-semibold text-emerald-500">
-                  {item.compliant}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  Expiring Soon
-                </div>
-                <div className="text-2xl font-semibold text-amber-500">
-                  {item.expiringSoon}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  <XCircle className="h-4 w-4 text-destructive" />
-                  Expired
-                </div>
-                <div className="text-2xl font-semibold text-destructive">
-                  {item.expired}
-                </div>
-              </div>
+            <div className="text-xs text-muted-foreground">
+              Score calculation: ({item.compliant} × 1.0 + {item.expiringSoon} × 0.5) ÷ {item.total} × 100 = {item.score}%
             </div>
           </motion.div>
         ))}

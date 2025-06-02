@@ -17,7 +17,6 @@ import { Route as PlanningImport } from './routes/planning'
 import { Route as CertificatesImport } from './routes/certificates'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
-import { Route as DemoTanstackQueryImport } from './routes/demo.tanstack-query'
 
 // Create/Update Routes
 
@@ -54,12 +53,6 @@ const AdminRoute = AdminImport.update({
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const DemoTanstackQueryRoute = DemoTanstackQueryImport.update({
-  id: '/demo/tanstack-query',
-  path: '/demo/tanstack-query',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -109,13 +102,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServiceidImport
       parentRoute: typeof rootRoute
     }
-    '/demo/tanstack-query': {
-      id: '/demo/tanstack-query'
-      path: '/demo/tanstack-query'
-      fullPath: '/demo/tanstack-query'
-      preLoaderRoute: typeof DemoTanstackQueryImport
-      parentRoute: typeof rootRoute
-    }
   }
 }
 
@@ -128,7 +114,6 @@ export interface FileRoutesByFullPath {
   '/planning': typeof PlanningRoute
   '/reports': typeof ReportsRoute
   '/serviceid': typeof ServiceidRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
 }
 
 export interface FileRoutesByTo {
@@ -138,7 +123,6 @@ export interface FileRoutesByTo {
   '/planning': typeof PlanningRoute
   '/reports': typeof ReportsRoute
   '/serviceid': typeof ServiceidRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
 }
 
 export interface FileRoutesById {
@@ -149,7 +133,6 @@ export interface FileRoutesById {
   '/planning': typeof PlanningRoute
   '/reports': typeof ReportsRoute
   '/serviceid': typeof ServiceidRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
 }
 
 export interface FileRouteTypes {
@@ -161,16 +144,8 @@ export interface FileRouteTypes {
     | '/planning'
     | '/reports'
     | '/serviceid'
-    | '/demo/tanstack-query'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/admin'
-    | '/certificates'
-    | '/planning'
-    | '/reports'
-    | '/serviceid'
-    | '/demo/tanstack-query'
+  to: '/' | '/admin' | '/certificates' | '/planning' | '/reports' | '/serviceid'
   id:
     | '__root__'
     | '/'
@@ -179,7 +154,6 @@ export interface FileRouteTypes {
     | '/planning'
     | '/reports'
     | '/serviceid'
-    | '/demo/tanstack-query'
   fileRoutesById: FileRoutesById
 }
 
@@ -190,7 +164,6 @@ export interface RootRouteChildren {
   PlanningRoute: typeof PlanningRoute
   ReportsRoute: typeof ReportsRoute
   ServiceidRoute: typeof ServiceidRoute
-  DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -200,7 +173,6 @@ const rootRouteChildren: RootRouteChildren = {
   PlanningRoute: PlanningRoute,
   ReportsRoute: ReportsRoute,
   ServiceidRoute: ServiceidRoute,
-  DemoTanstackQueryRoute: DemoTanstackQueryRoute,
 }
 
 export const routeTree = rootRoute
@@ -218,8 +190,7 @@ export const routeTree = rootRoute
         "/certificates",
         "/planning",
         "/reports",
-        "/serviceid",
-        "/demo/tanstack-query"
+        "/serviceid"
       ]
     },
     "/": {
@@ -239,9 +210,6 @@ export const routeTree = rootRoute
     },
     "/serviceid": {
       "filePath": "serviceid.tsx"
-    },
-    "/demo/tanstack-query": {
-      "filePath": "demo.tanstack-query.tsx"
     }
   }
 }

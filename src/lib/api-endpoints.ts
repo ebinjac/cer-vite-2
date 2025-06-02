@@ -15,7 +15,7 @@ export const PLANNING_CERTIFICATE_UPDATE_API = (id: number) => `/api/v1/planning
 export const PLANNING_SERVICEID_API = 'https://mocki.io/v1/44f75222-b4b8-411a-9efa-ab7be157d6a6'
 
 // Team Management APIs
-export const TEAM_MANAGEMENT_API = 'https://mocki.io/v1/e3b860e2-4bb4-4262-aec5-a8c83abc8ffa'
+export const TEAM_MANAGEMENT_API = 'https://mocki.io/v1/5185a141-aab9-4a52-9701-a69ffd0639f5'
 export const TEAM_CREATE_API = 'http://localhost:7998/api/v1/team'
 export const TEAM_UPDATE_API = 'http://localhost:7998/api/v1/team'
 

@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from 'react'
 import {
   flexRender,
@@ -37,21 +39,39 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { MoreHorizontal, Pencil, Search, PlusCircle, ArrowUpDown } from "lucide-react"
-import type { TeamManagement } from '@/hooks/use-team-management'
+import type { TeamManagement, TeamManagementInput } from '@/hooks/use-team-management'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+  DrawerClose,
+} from "@/components/ui/drawer"
+import { useState } from "react"
+import { AddTeamForm } from "@/components/admin/add-team-form"
+import { EditTeamForm } from "@/components/admin/edit-team-form"
+import { motion } from "framer-motion"
+import { Plus } from "lucide-react"
+
+const MotionButton = motion(Button)
 
 interface TeamsTableProps {
   data: TeamManagement[]
   isLoading: boolean
   isError: boolean
   error: Error | null
-  onEdit: (team: TeamManagement) => void
-  onAdd: () => void
+  onEdit: (data: TeamManagement) => void
+  onAdd: (data: TeamManagement) => void
 }
 
 export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: TeamsTableProps) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false)
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
+  const [selectedTeam, setSelectedTeam] = useState<TeamManagement | null>(null)
 
   const columns: ColumnDef<TeamManagement>[] = [
     {
@@ -155,15 +175,33 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
       accessorKey: "escalation",
       header: "Escalation",
       cell: ({ row }) => {
-        const value = row.getValue("escalation") as string
+        const emails = (row.getValue("escalation") as string).split(',').map(email => email.trim()).filter(Boolean)
         return (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="max-w-[200px] truncate">{value}</div>
+                <div className="max-w-[200px]">
+                  {emails.length > 2 ? (
+                    <div className="flex gap-1 items-center">
+                      <Badge variant="outline" className="whitespace-nowrap">{emails[0]}</Badge>
+                      <Badge variant="outline" className="whitespace-nowrap">{emails[1]}</Badge>
+                      <Badge variant="secondary" className="whitespace-nowrap">+{emails.length - 2}</Badge>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1 flex-wrap">
+                      {emails.map((email, i) => (
+                        <Badge key={i} variant="outline" className="whitespace-nowrap">{email}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>{value}</p>
+              <TooltipContent className="max-w-[300px]">
+                <div className="flex gap-1 flex-wrap">
+                  {emails.map((email, i) => (
+                    <Badge key={i} variant="outline">{email}</Badge>
+                  ))}
+                </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -205,7 +243,10 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onEdit(team)}>
+              <DropdownMenuItem onClick={() => {
+                setSelectedTeam(team)
+                setIsEditDrawerOpen(true)
+              }}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit Team
               </DropdownMenuItem>
@@ -231,6 +272,27 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
     },
   })
 
+  const handleEdit = (team: TeamManagement) => {
+    setSelectedTeam(team)
+    setIsEditDrawerOpen(true)
+  }
+
+  const handleEditSubmit = async (data: TeamManagement) => {
+    await onEdit(data)
+    setIsEditDrawerOpen(false)
+    setSelectedTeam(null)
+  }
+
+  const handleAddSubmit = async (data: TeamManagementInput) => {
+    // Convert TeamManagementInput to TeamManagement for the parent onAdd callback
+    const teamData: TeamManagement = {
+      id: 0, // This will be replaced by the server
+      ...data
+    }
+    await onAdd(teamData)
+    setIsAddDrawerOpen(false)
+  }
+
   if (isError) {
     return (
       <Card>
@@ -254,10 +316,29 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
               Manage teams and their configurations for certificates and service IDs.
             </CardDescription>
           </div>
-          <Button onClick={onAdd}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Team
-          </Button>
+          <Drawer open={isAddDrawerOpen} onOpenChange={setIsAddDrawerOpen} direction="right">
+            <DrawerTrigger asChild>
+              <MotionButton
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Team
+              </MotionButton>
+            </DrawerTrigger>
+            <DrawerContent className="min-w-[750px] ml-auto h-full">
+              <DrawerHeader className="border-b">
+                <DrawerTitle>Create New Team</DrawerTitle>
+              </DrawerHeader>
+              <div className="overflow-y-auto flex-1 h-[calc(100vh-4rem)]">
+                <div className="p-4">
+                  <AddTeamForm onSubmit={handleAddSubmit} />
+                </div>
+              </div>
+              <DrawerClose />
+            </DrawerContent>
+          </Drawer>
         </div>
         <div className="flex items-center gap-2 mt-4">
           <Search className="h-4 w-4 text-muted-foreground" />
@@ -321,6 +402,24 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
           </Table>
         </div>
       </CardContent>
+      <Drawer open={isEditDrawerOpen} onOpenChange={setIsEditDrawerOpen} direction="right">
+        <DrawerContent className="min-w-[750px] ml-auto h-full">
+          <DrawerHeader className="border-b">
+            <DrawerTitle>Edit Team</DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 h-[calc(100vh-4rem)]">
+            <div className="p-4">
+              {selectedTeam && (
+                <EditTeamForm 
+                  team={selectedTeam}
+                  onSubmit={handleEditSubmit} 
+                />
+              )}
+            </div>
+          </div>
+          <DrawerClose />
+        </DrawerContent>
+      </Drawer>
     </Card>
   )
 } 

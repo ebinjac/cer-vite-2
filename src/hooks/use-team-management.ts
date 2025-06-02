@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { TEAM_MANAGEMENT_API, TEAM_CREATE_API, TEAM_UPDATE_API } from '@/lib/api-endpoints'
 
 export interface TeamManagement {
-  "1d": number
+  id: number
   teamName: string
   escalation: string
   alert1: string
@@ -14,7 +14,7 @@ export interface TeamManagement {
   prcGroup: string
 }
 
-export type TeamManagementInput = Omit<TeamManagement, '1d'>
+export type TeamManagementInput = Omit<TeamManagement, 'id'>
 
 /**
  * Custom hook to fetch team management data
@@ -74,7 +74,8 @@ export function useUpdateTeam() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (team: TeamManagementInput) => {
+    mutationFn: async (team: TeamManagement) => {
+      console.log('Update Team Mutation - Request Data:', team)
       const res = await fetch(TEAM_UPDATE_API, {
         method: 'PUT',
         headers: {
@@ -87,7 +88,9 @@ export function useUpdateTeam() {
         throw new Error(`Failed to update team: ${res.status} ${res.statusText}`)
       }
 
-      return res.json()
+      const responseData = await res.json()
+      console.log('Update Team Mutation - Response:', responseData)
+      return responseData
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teamManagement'] })

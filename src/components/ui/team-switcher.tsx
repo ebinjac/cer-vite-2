@@ -46,6 +46,9 @@ export function TeamSwitcher() {
           throw new Error('Failed to fetch teams')
         }
         const teams = await response.json()
+        if (!Array.isArray(teams) || teams.length === 0) {
+          throw new Error('No teams returned from API')
+        }
         setAvailableTeams(teams)
       } catch (error) {
         console.error('Error fetching teams:', error)
@@ -62,10 +65,8 @@ export function TeamSwitcher() {
       }
     }
 
-    if (availableTeams.length === 0) {
-      fetchTeams()
-    }
-  }, [availableTeams.length, setAvailableTeams])
+    fetchTeams()
+  }, [setAvailableTeams])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

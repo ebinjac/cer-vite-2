@@ -1377,19 +1377,21 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
         </AlertDialog>
 
             <Drawer open={showUpdateDrawer} onOpenChange={setShowUpdateDrawer} direction="right">
-              <DrawerContent className="max-w-lg ml-auto">
-                <DrawerHeader>
+              <DrawerContent className="min-w-[750px] ml-auto h-full">
+                <DrawerHeader className="border-b">
                   <DrawerTitle>Update Service ID</DrawerTitle>
                 </DrawerHeader>
-                <div className="p-4">
-                  <ServiceIdUpdateForm 
-                    serviceId={serviceId}
-                    onSuccess={() => {
-                      setShowUpdateDrawer(false)
-                      refetch()
-                    }}
-                    onCancel={() => setShowUpdateDrawer(false)}
-                  />
+                <div className="overflow-y-auto flex-1 h-[calc(100vh-4rem)]">
+                  <div className="p-4">
+                    <ServiceIdUpdateForm 
+                      serviceId={serviceId}
+                      onSuccess={() => {
+                        setShowUpdateDrawer(false)
+                        refetch()
+                      }}
+                      onCancel={() => setShowUpdateDrawer(false)}
+                    />
+                  </div>
                 </div>
                 <DrawerClose />
               </DrawerContent>
@@ -1673,24 +1675,26 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
           <div className="flex space-x-2">
             <Drawer open={isAddDrawerOpen} onOpenChange={setIsAddDrawerOpen} direction="right">
               <DrawerTrigger asChild>
-            <MotionButton 
-              variant="default" 
-              size="sm"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              Add Service ID
-            </MotionButton>
+                <MotionButton 
+                  variant="default" 
+                  size="sm"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Add Service ID
+                </MotionButton>
               </DrawerTrigger>
-              <DrawerContent className="max-w-lg ml-auto">
-                <DrawerHeader>
+              <DrawerContent className="min-w-[750px] ml-auto h-full">
+                <DrawerHeader className="border-b">
                   <DrawerTitle>Create New Service ID</DrawerTitle>
                 </DrawerHeader>
-                <div className="p-4">
-                  <ServiceIdForm onSuccess={() => {
-                    setIsAddDrawerOpen(false)
-                    if (refetch) refetch()
-                  }} />
+                <div className="overflow-y-auto flex-1 h-[calc(100vh-4rem)]">
+                  <div className="p-4">
+                    <ServiceIdForm onSuccess={() => {
+                      setIsAddDrawerOpen(false)
+                      if (refetch) refetch()
+                    }} />
+                  </div>
                 </div>
                 <DrawerClose />
               </DrawerContent>
@@ -1705,15 +1709,17 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
                   Bulk Upload
                 </Button>
               </DrawerTrigger>
-              <DrawerContent className="min-w-[90vw] max-w-[90vw] ml-auto">
-                <DrawerHeader>
+              <DrawerContent className="min-w-[90vw] max-w-[90vw] ml-auto h-full">
+                <DrawerHeader className="border-b">
                   <DrawerTitle>Bulk Upload Service IDs</DrawerTitle>
                 </DrawerHeader>
-                <div className="p-4">
-                  <BulkServiceIdUpload onUploadSuccess={() => {
-                    setIsBulkDrawerOpen(false)
-                    if (refetch) refetch()
-                  }} />
+                <div className="overflow-y-auto flex-1 h-[calc(100vh-4rem)]">
+                  <div className="p-4">
+                    <BulkServiceIdUpload onUploadSuccess={() => {
+                      setIsBulkDrawerOpen(false)
+                      if (refetch) refetch()
+                    }} />
+                  </div>
                 </div>
                 <DrawerClose />
               </DrawerContent>

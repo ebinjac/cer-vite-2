@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -6,6 +8,8 @@ import { useFileUpload, formatBytes } from '@/hooks/use-file-upload'
 import type { FileWithPreview } from '@/hooks/use-file-upload'
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from '@/components/ui/table'
 import { SERVICEID_CREATE_API, APPLICATION_LIST_API } from '@/lib/api-endpoints'
+import { useTeamStore } from '@/store/team-store'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,16 +23,16 @@ import {
   StepperTitle,
   StepperTrigger,
 } from "@/components/ui/stepper"
-import { useTeamStore } from '@/store/team-store'
 
 const SERVICEID_FIELDS = [
-  'serviceID',
-  'environment',
-  'applicationName',
-  'expiryDate',
+  'svcid',
+  'env',
+  'application',
+  'expDate',
   'renewalProcess',
   'comment',
 ]
+
 const ENV_OPTIONS = ['E1', 'E2', 'E3']
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -36,6 +40,29 @@ type UploadStatus = {
   status: 'idle' | 'loading' | 'success' | 'error'
   message?: string
 }
+
+const UPLOAD_STEPS = [
+  {
+    step: 1,
+    title: "Select File",
+    description: "Upload your CSV file",
+  },
+  {
+    step: 2,
+    title: "Validation",
+    description: "Review validation results",
+  },
+  {
+    step: 3,
+    title: "Processing",
+    description: "Upload service IDs",
+  },
+  {
+    step: 4,
+    title: "Complete",
+    description: "View upload status",
+  },
+] as const
 
 function downloadCsvTemplate(fields: string[], filename: string) {
   const csv = fields.join(',') + '\n'
@@ -68,7 +95,7 @@ function headersMatch(headers: string[], expected: string[]): boolean {
   return true
 }
 
-const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUploadSuccess }) => {
+export default function BulkServiceIdUpload({ onUploadSuccess }: { onUploadSuccess?: () => void }) {
   const [validationResults, setValidationResults] = React.useState<null | { valid: number, invalid: number, errors: string[][] }>(null)
   const [processing, setProcessing] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
@@ -83,9 +110,12 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
   })
 
   const { selectedTeam } = useTeamStore()
+  const queryClient = useQueryClient()
   const [applications, setApplications] = React.useState<string[]>([])
   const [appLoading, setAppLoading] = React.useState(false)
   const [appError, setAppError] = React.useState<string | null>(null)
+  const [hasCompletedProcessing, setHasCompletedProcessing] = React.useState(false)
+  const [rowsData, setRowsData] = React.useState<Array<{ svcid: string; application: string }>>([])
 
   const [
     { files, isDragging, errors: fileErrors },
@@ -100,7 +130,6 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
     },
   ] = useFileUpload({
     maxSize: MAX_SIZE,
-    accept: '.csv',
     multiple: false,
     onFilesChange: async (files) => {
       setValidationResults(null)
@@ -147,28 +176,8 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
   })
 
   const file = files[0]
-  const [rowsData, setRowsData] = React.useState<Array<{ serviceID: string; applicationName: string }>>([])
 
-  React.useEffect(() => {
-    if (!file?.file || !validationResults) return
-    const fileReader = new FileReader()
-    fileReader.onload = (e) => {
-      try {
-        const text = e.target?.result as string
-        if (!text) return
-        const { rows } = parseCsv(text)
-        const data = rows.map(row => ({
-          serviceID: row[0] || '',
-          applicationName: row[2] || ''
-        }))
-        setRowsData(data)
-      } catch (err) {
-        console.error('Failed to load row data:', err)
-      }
-    }
-    fileReader.readAsText(file.file as File)
-  }, [file, validationResults])
-
+  // Load applications when team changes
   React.useEffect(() => {
     if (!selectedTeam) return
     setAppLoading(true)
@@ -190,25 +199,84 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
         setApplications(apps)
         setAppLoading(false)
       })
-      .catch((err: any) => {
+      .catch(err => {
         setAppError(err.message || 'Failed to fetch applications')
         setAppLoading(false)
       })
   }, [selectedTeam])
 
+  // Load row data when file changes
+  React.useEffect(() => {
+    if (!file?.file || !validationResults) return
+    const fileReader = new FileReader()
+    fileReader.onload = (e) => {
+      try {
+        const text = e.target?.result as string
+        if (!text) return
+        const { rows } = parseCsv(text)
+        const data = rows.map(row => ({
+          svcid: row[0] || '',
+          application: row[2] || ''
+        }))
+        setRowsData(data)
+      } catch (err) {
+        console.error('Failed to load row data:', err)
+      }
+    }
+    fileReader.readAsText(file.file as File)
+  }, [file, validationResults])
+
+  function validateRow(row: Record<string, string>): string[] {
+    const errors: string[] = []
+    
+    // Required fields
+    if (!row.svcid) errors.push('Service ID is required')
+    if (!row.env) {
+      errors.push('Environment is required')
+    } else if (!ENV_OPTIONS.includes(row.env.toUpperCase())) {
+      errors.push(`Environment must be one of: ${ENV_OPTIONS.join(', ')}`)
+    }
+    
+    // Application validation
+    if (!row.application) {
+      errors.push('Application is required')
+    } else if (applications.length > 0 && !applications.includes(row.application)) {
+      errors.push(`Application must be one of: ${applications.join(', ')}`)
+    }
+
+    // Expiry date validation
+    if (!row.expDate) {
+      errors.push('Expiry date is required')
+    } else {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (!dateRegex.test(row.expDate)) {
+        errors.push('Expiry date must be in YYYY-MM-DD format')
+      }
+    }
+
+    // Renewal process validation
+    if (!row.renewalProcess) {
+      errors.push('Renewal process is required')
+    } else if (!['Manual', 'Automated'].includes(row.renewalProcess)) {
+      errors.push('Renewal process must be either Manual or Automated')
+    }
+
+    return errors
+  }
+
   function buildPayload(row: Record<string, string>): any {
     return {
-      svcid: row.serviceID,
-      env: row.environment ? row.environment.toUpperCase() : '',
-      application: row.applicationName,
-      expDate: row.expiryDate,
+      svcid: row.svcid,
+      env: row.env.toUpperCase(),
+      application: row.application,
+      expDate: row.expDate,
       renewalProcess: row.renewalProcess,
       comment: row.comment || '',
-      renewingTeamName: '', // Optionally fill if you have team context
+      renewingTeamName: selectedTeam,
     }
   }
 
-  async function uploadServiceId(payload: any): Promise<void> {
+  const uploadServiceId = React.useCallback(async (payload: any): Promise<void> => {
     const response = await fetch(SERVICEID_CREATE_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -218,65 +286,46 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
       const errorText = await response.text()
       throw new Error(errorText)
     }
-  }
+  }, [])
 
-  const processRow = React.useCallback((row: string[], headers: string[], index: number, statusArr: UploadStatus[]): Promise<void> => {
+  const processRow = React.useCallback((
+    row: string[],
+    headers: string[],
+    index: number,
+    statusArr: UploadStatus[]
+  ): Promise<void> => {
     statusArr[index] = { status: 'loading' }
     setUploadStatus([...statusArr])
+
     const rowData: Record<string, string> = {}
     headers.forEach((h, idx) => { rowData[h] = row[idx] || '' })
     const payload = buildPayload(rowData)
+
     return uploadServiceId(payload)
       .then(() => {
         statusArr[index] = { status: 'success' }
         setUploadStatus([...statusArr])
       })
-      .catch((err: any) => {
-        statusArr[index] = { status: 'error', message: err.message || 'Unknown error occurred' }
+      .catch(err => {
+        statusArr[index] = { 
+          status: 'error', 
+          message: err.message || 'Unknown error occurred'
+        }
         setUploadStatus([...statusArr])
       })
-  }, [])
+  }, [uploadServiceId])
 
   const processUpload = React.useCallback((fileContent: string, validationResults: any) => {
     const { headers, rows } = parseCsv(fileContent)
     const validRows = rows.filter((_, i) => validationResults.errors[i].length === 0)
     const statusArr: UploadStatus[] = validRows.map(() => ({ status: 'idle' }))
     setUploadStatus(statusArr)
+
     return validRows.reduce((promise, row, index) => {
       return promise.then(() => processRow(row, headers, index, statusArr))
     }, Promise.resolve())
       .then(() => statusArr)
   }, [processRow])
-
-  const handleBulkUpload = React.useCallback(() => {
-    if (!validationResults || !file?.file || !(file.file instanceof File)) return
-    setUploading(true)
-    setShowSummary(false)
-    const fileReader = new FileReader()
-    fileReader.onload = (e) => {
-      const fileContent = e.target?.result as string
-      processUpload(fileContent, validationResults)
-        .then(statusArr => {
-          const hasErrors = statusArr.some(s => s.status === 'error')
-          setShowSummary(true)
-          if (!hasErrors && onUploadSuccess) onUploadSuccess()
-        })
-        .catch(err => {
-          console.error('Failed to process file:', err)
-          toast.error('Failed to process file')
-        })
-        .finally(() => {
-          setUploading(false)
-        })
-    }
-    fileReader.readAsText(file.file as File)
-  }, [validationResults, file, processUpload, onUploadSuccess])
-
-  const uploadProgress = React.useMemo(() => {
-    if (!uploading) return 0
-    const completed = uploadStatus.filter(s => s.status === 'success' || s.status === 'error').length
-    return Math.round((completed / uploadStatus.length) * 100)
-  }, [uploadStatus, uploading])
 
   const handleStepChange = React.useCallback((step: number) => {
     if (canNavigateToStep[step]) {
@@ -296,63 +345,58 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
   React.useEffect(() => {
     if (uploading) {
       setCurrentStep(3)
-    } else if (showSummary) {
+    } else if (showSummary && hasCompletedProcessing) {
       setCurrentStep(4)
     } else if (validationResults) {
       setCurrentStep(2)
     } else {
       setCurrentStep(1)
     }
-  }, [uploading, showSummary, validationResults])
+  }, [uploading, showSummary, validationResults, hasCompletedProcessing])
 
-  function validateRow(row: Record<string, string>): string[] {
-    const errors: string[] = []
-    if (!row.serviceID) errors.push('serviceID is required')
-    if (!row.environment) errors.push('environment is required')
-    else if (!ENV_OPTIONS.includes(row.environment.toUpperCase())) errors.push('environment must be E1, E2, or E3')
-    if (!row.applicationName) {
-      errors.push('applicationName is required')
-    } else if (applications.length > 0 && !applications.includes(row.applicationName)) {
-      errors.push(`applicationName must be one of: ${applications.join(', ')}`)
-    }
-    if (!row.expiryDate) errors.push('expiryDate is required')
-    else {
-      const dateFormatRegex = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/
-      if (!dateFormatRegex.test(row.expiryDate)) {
-        errors.push('expiryDate must be in YYYY-MM-DD format (e.g., 2025-05-19)')
-      } else {
-        const date = new Date(row.expiryDate)
-        if (isNaN(date.getTime())) errors.push('expiryDate must be a valid date')
+  const handleBulkUpload = React.useCallback(() => {
+    if (!validationResults || !file?.file || !(file.file instanceof File)) return
+    setUploading(true)
+    setShowSummary(false)
+    setHasCompletedProcessing(false)
+
+    const fileReader = new FileReader()
+    fileReader.onload = (e) => {
+      const fileContent = e.target?.result as string
+      if (!fileContent) {
+        toast.error('Failed to read file content')
+        setUploading(false)
+        return
       }
-    }
-    if (!row.renewalProcess) errors.push('renewalProcess is required')
-    else if (!['Manual', 'Automatic'].includes(row.renewalProcess)) errors.push('renewalProcess must be Manual or Automatic')
-    // comment is optional
-    return errors
-  }
 
-  const UPLOAD_STEPS = [
-    {
-      step: 1,
-      title: "Select File",
-      description: "Upload your CSV file",
-    },
-    {
-      step: 2,
-      title: "Validation",
-      description: "Review validation results",
-    },
-    {
-      step: 3,
-      title: "Processing",
-      description: "Upload service IDs",
-    },
-    {
-      step: 4,
-      title: "Complete",
-      description: "View upload status",
-    },
-  ]
+      processUpload(fileContent, validationResults)
+        .then(statusArr => {
+          setHasCompletedProcessing(true)
+          const hasErrors = statusArr.some(s => s.status === 'error')
+          setShowSummary(true)
+          if (!hasErrors) {
+            queryClient.invalidateQueries({ queryKey: ['serviceids'] })
+            if (onUploadSuccess) {
+              onUploadSuccess()
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Failed to process file:', err)
+          toast.error('Failed to process file')
+        })
+        .finally(() => {
+          setUploading(false)
+        })
+    }
+    fileReader.readAsText(file.file)
+  }, [validationResults, file, processUpload, onUploadSuccess, queryClient])
+
+  const uploadProgress = React.useMemo(() => {
+    if (!uploading) return 0
+    const completed = uploadStatus.filter(s => s.status === 'success' || s.status === 'error').length
+    return Math.round((completed / uploadStatus.length) * 100)
+  }, [uploadStatus, uploading])
 
   return (
     <div className="w-full my-8 px-4">
@@ -565,8 +609,8 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
                           >
                             <TableCell className="px-4 py-3">
                               <div className="flex flex-col">
-                                <span className="font-medium">{row.serviceID}</span>
-                                <span className="text-sm text-muted-foreground">{row.applicationName}</span>
+                                <span className="font-medium">{row.svcid}</span>
+                                <span className="text-sm text-muted-foreground">{row.application}</span>
                               </div>
                             </TableCell>
                             <TableCell className="px-4 py-3">
@@ -711,6 +755,4 @@ const BulkServiceIdUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUpl
       </AnimatePresence>
     </div>
   )
-}
-
-export default BulkServiceIdUpload 
+} 

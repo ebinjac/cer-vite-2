@@ -25,8 +25,13 @@ import {
 import { TagInput } from "emblor"
 import type { Tag } from "emblor"
 import type { TeamManagement, TeamManagementInput } from '@/hooks/use-team-management'
+import { useCreateTeam } from '@/hooks/use-team-management'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
+
+const emailSchema = z.string().email("Please enter a valid email address.").regex(/@aexp\.com$/, {
+  message: "Email must be an @aexp.com address."
+})
 
 const formSchema = z.object({
   teamName: z.string().min(2, {
@@ -36,24 +41,27 @@ const formSchema = z.object({
   }).regex(/^[a-zA-Z0-9\s-_]+$/, {
     message: "Team name can only contain letters, numbers, spaces, hyphens, and underscores."
   }),
-  escalation: z.string().email({
-    message: "Please enter a valid email address.",
+  escalation: z.array(z.object({
+    id: z.string(),
+    text: emailSchema
+  })).min(1, {
+    message: "At least one escalation email address is required."
   }),
   alert1: z.array(z.object({
     id: z.string(),
-    text: z.string().email("Please enter valid email addresses")
+    text: emailSchema
   })).min(1, {
     message: "At least one email address is required for Alert Level 1."
   }),
   alert2: z.array(z.object({
     id: z.string(),
-    text: z.string().email("Please enter valid email addresses")
+    text: emailSchema
   })).min(1, {
     message: "At least one email address is required for Alert Level 2."
   }),
   alert3: z.array(z.object({
     id: z.string(),
-    text: z.string().email("Please enter valid email addresses")
+    text: emailSchema
   })).min(1, {
     message: "At least one email address is required for Alert Level 3."
   }),
@@ -80,57 +88,77 @@ const formSchema = z.object({
   }),
 })
 
-interface TeamFormProps {
-  initialData?: TeamManagement
+type FormValues = z.infer<typeof formSchema>
+
+interface AddTeamFormProps {
   onSubmit: (data: TeamManagementInput) => void
-  isSubmitting?: boolean
-  formRef?: React.RefObject<HTMLFormElement>
   hideSubmitButton?: boolean
 }
 
-export function TeamForm({ initialData, onSubmit, isSubmitting, formRef, hideSubmitButton }: TeamFormProps) {
-  // State for active tag indices
+const convertToTags = (items: string[] = []): Tag[] => {
+  return items.map(item => ({ id: crypto.randomUUID(), text: item }))
+}
+
+const validateEmail = (tag: { text: string }): boolean => {
+  try {
+    emailSchema.parse(tag.text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function AddTeamForm({ onSubmit, hideSubmitButton }: AddTeamFormProps) {
   const [activeAppTagIndex, setActiveAppTagIndex] = React.useState<number | null>(-1)
+  const [activeEscalationTagIndex, setActiveEscalationTagIndex] = React.useState<number | null>(-1)
   const [activeAlert1TagIndex, setActiveAlert1TagIndex] = React.useState<number | null>(-1)
   const [activeAlert2TagIndex, setActiveAlert2TagIndex] = React.useState<number | null>(-1)
   const [activeAlert3TagIndex, setActiveAlert3TagIndex] = React.useState<number | null>(-1)
 
-  // Convert string lists to tag arrays
-  const convertToTags = (str: string = ''): Tag[] => {
-    return str.split(',')
-      .map(item => item.trim())
-      .filter(Boolean)
-      .map(text => ({
-        id: crypto.randomUUID(),
-        text
-      }))
-  }
+  const { mutateAsync: createTeam, isPending: isCreating } = useCreateTeam()
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      teamName: initialData?.teamName || "",
-      escalation: initialData?.escalation || "",
-      alert1: convertToTags(initialData?.alert1),
-      alert2: convertToTags(initialData?.alert2),
-      alert3: convertToTags(initialData?.alert3),
-      snowGroup: initialData?.snowGroup || "",
-      functionHandled: initialData?.functionHandled || "certificate",
-      applications: convertToTags(initialData?.listOfApplicationNames),
-      prcGroup: initialData?.prcGroup || "",
+      teamName: "",
+      escalation: [],
+      alert1: [],
+      alert2: [],
+      alert3: [],
+      snowGroup: "",
+      functionHandled: "serviceid",
+      applications: [],
+      prcGroup: "",
     },
   })
 
-  const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    // Convert tag arrays back to comma-separated strings
-    const convertedData = {
-      ...data,
-      alert1: data.alert1.map(tag => tag.text).join(', '),
-      alert2: data.alert2.map(tag => tag.text).join(', '),
-      alert3: data.alert3.map(tag => tag.text).join(', '),
-      listOfApplicationNames: data.applications.map(tag => tag.text).join(', '),
+  const handleSubmit = async (data: FormValues) => {
+    try {
+      const teamData: TeamManagementInput = {
+        teamName: data.teamName,
+        escalation: data.escalation.map(a => a.text).join(","),
+        alert1: data.alert1.map(a => a.text).join(","),
+        alert2: data.alert2.map(a => a.text).join(","),
+        alert3: data.alert3.map(a => a.text).join(","),
+        snowGroup: data.snowGroup,
+        functionHandled: data.functionHandled,
+        listOfApplicationNames: data.applications.map(a => a.text).join(","),
+        prcGroup: data.prcGroup,
+      }
+
+      console.log('Add Form - Create Data:', teamData)
+      await createTeam(teamData)
+      toast.success("Team Created", {
+        description: "The team has been created successfully."
+      })
+      
+      // Call parent onSubmit callback
+      onSubmit(teamData)
+    } catch (error) {
+      toast.error("Error", {
+        description: error instanceof Error ? error.message : "An error occurred while creating the team."
+      })
     }
-    onSubmit(convertedData)
   }
 
   // Common TagInput styles
@@ -147,11 +175,7 @@ export function TeamForm({ initialData, onSubmit, isSubmitting, formRef, hideSub
 
   return (
     <Form {...form}>
-      <form 
-        ref={formRef as React.RefObject<HTMLFormElement>} 
-        onSubmit={form.handleSubmit(handleSubmit)} 
-        className="space-y-2"
-      >
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-2">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Basic Information Section */}
           <Card className="border-none shadow-none">
@@ -207,22 +231,28 @@ export function TeamForm({ initialData, onSubmit, isSubmitting, formRef, hideSub
               <CardTitle className="text-sm font-semibold text-muted-foreground">Contact Information</CardTitle>
             </CardHeader>
             <CardContent className="px-0 space-y-2">
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid gap-4">
                 <FormField
                   control={form.control}
                   name="escalation"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-sm font-medium">Escalation Email</FormLabel>
+                    <FormItem>
+                      <FormLabel>Escalation Emails</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="email" 
-                          className="h-8 border-2 focus-visible:ring-2" 
-                          placeholder="Enter escalation email" 
-                          {...field} 
+                        <TagInput
+                          tags={field.value}
+                          setTags={field.onChange}
+                          placeholder="Enter @aexp.com email and press Enter"
+                          activeTagIndex={activeEscalationTagIndex}
+                          setActiveTagIndex={setActiveEscalationTagIndex}
+                          validate={validateEmail}
+                          styleClasses={tagInputStyles}
                         />
                       </FormControl>
-                      <FormMessage className="text-xs" />
+                      <FormDescription>
+                        Add @aexp.com email addresses for escalation notifications
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -411,8 +441,8 @@ export function TeamForm({ initialData, onSubmit, isSubmitting, formRef, hideSub
 
         {!hideSubmitButton && (
           <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting} className="h-8 text-sm">
-              {isSubmitting ? "Saving..." : "Save Team"}
+            <Button type="submit" disabled={isCreating} className="h-8 text-sm">
+              {isCreating ? "Creating..." : "Create Team"}
             </Button>
           </div>
         )}
