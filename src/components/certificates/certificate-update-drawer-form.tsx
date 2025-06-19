@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Certificate } from '@/hooks/use-certificates'
+import { CalendarIcon, MessageSquare, Settings } from 'lucide-react'
 
 const baseSchema = z.object({
   commonName: z.string().min(1, 'Common Name is required'),
@@ -223,203 +224,309 @@ export function CertificateUpdateDrawerForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-4 overflow-y-auto">
+    <div className="w-full max-w-3xl mx-auto p-6">
+      <div className="space-y-3 mb-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Common Name:</span>
+          <code className="font-mono font-medium text-foreground bg-muted px-2 py-1 rounded">{certificate.commonName}</code>
+        </div>
+      </div>
+
       {apiError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-2 text-sm">
+        <div className="bg-destructive/15 text-destructive border border-destructive/20 px-3 py-2 rounded-md mb-4 text-sm">
           {apiError}
         </div>
       )}
-      <div className="mb-2">
-        <h2 className="text-lg font-semibold mb-1">Update Certificate</h2>
-        <p className="text-muted-foreground text-sm mb-4">Update details for the selected certificate.</p>
-        <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-sm mb-4">
-          <p className="font-medium">Note:</p>
-          <ul className="list-disc ml-5 mt-1 space-y-1">
-            <li>Common Name and Serial Number cannot be changed through this form</li>
-            <li>Certificate Type cannot be modified</li>
-            <li>For Non-Amex certificates, you can update the expiry date</li>
-            <li>To change Serial Number, please use the renewal flow</li>
-          </ul>
-        </div>
+
+      <div className="bg-blue-50 border border-blue-100 text-blue-800 px-3 py-2 rounded-md text-sm mb-6">
+        <p className="font-medium">Important Notes:</p>
+        <ul className="list-disc ml-4 mt-1 space-y-0.5">
+          <li>Common Name and Serial Number cannot be changed through this form</li>
+          <li>Certificate Type cannot be modified</li>
+          <li>For Non-Amex certificates, you can update the expiry date</li>
+          <li>To change Serial Number, please use the renewal flow</li>
+        </ul>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Common Name</label>
-          <Input 
-            value={certificate.commonName || ''} 
-            disabled
-            className="bg-gray-50 text-gray-600"
-          />
-          <p className="text-xs text-muted-foreground mt-1">Common Name cannot be modified</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Serial Number</label>
-          <Input 
-            value={certificate.serialNumber || ''} 
-            disabled
-            className="bg-gray-50 text-gray-600"
-          />
-          <p className="text-xs text-muted-foreground mt-1">Serial Number can only be changed via renewal</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Central ID</label>
-          <Input {...register('centralID', { onChange: handleFieldChange })} placeholder="Central ID" />
-          {errors.centralID && <p className="text-xs text-red-500 mt-1">{errors.centralID.message}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Application</label>
-          <Controller
-            name="applicationName"
-            control={control}
-            render={({ field }) => (
-              <Popover open={appOpen} onOpenChange={setAppOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={appOpen}
-                    className="w-full justify-between"
-                  >
-                    {appLoading ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</>
-                    ) : appError ? (
-                      'Failed to load applications'
-                    ) : field.value ? (
-                      appOptions.find(opt => opt === field.value) || field.value
-                    ) : (
-                      'Select application'
-                    )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0">
-                  <Command>
-                    <CommandInput placeholder="Search application..." />
-                    <CommandEmpty>No application found.</CommandEmpty>
-                    <CommandGroup>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Basic Information */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-base font-semibold text-primary">
+            <Check className="h-4 w-4" />
+            Basic Information
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/50 rounded-lg p-3">
+            <div>
+              <label className="text-sm font-medium">Common Name</label>
+              <Input 
+                value={certificate.commonName || ''} 
+                disabled
+                className="bg-background/50 text-muted-foreground mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Cannot be modified</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Serial Number</label>
+              <Input 
+                value={certificate.serialNumber || ''} 
+                disabled
+                className="bg-background/50 text-muted-foreground mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Can only be changed via renewal</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/50 rounded-lg p-3">
+            <div>
+              <label className="text-sm font-medium">Central ID</label>
+              <Input 
+                {...register('centralID', { onChange: handleFieldChange })} 
+                placeholder="Central ID" 
+                className="bg-background mt-1"
+              />
+              {errors.centralID && <p className="text-xs text-destructive mt-1">{errors.centralID.message}</p>}
+            </div>
+            <div>
+              <label className="text-sm font-medium">Type of Cert</label>
+              <Input 
+                value={certificate.isAmexCert === 'Yes' ? 'Amex cert' : 'Non Amex'} 
+                disabled
+                className="bg-background/50 text-muted-foreground mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Cannot be modified</p>
+            </div>
+          </div>
+
+          <div className="bg-muted/50 rounded-lg p-3">
+            <label className="text-sm font-medium">Application</label>
+            <Controller
+              name="applicationName"
+              control={control}
+              render={({ field }) => (
+                <Popover open={appOpen} onOpenChange={setAppOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={appOpen}
+                      className="w-full justify-between mt-1 bg-background"
+                    >
                       {appLoading ? (
-                        <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...
-                        </div>
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</>
                       ) : appError ? (
-                        <div className="flex items-center justify-center p-6 text-sm text-destructive">
-                          {appError}
-                        </div>
+                        'Failed to load applications'
+                      ) : field.value ? (
+                        appOptions.find(opt => opt === field.value) || field.value
                       ) : (
-                        appOptions.map(app => (
-                          <CommandItem
-                            key={app}
-                            value={app}
-                            onSelect={() => {
-                              field.onChange(app)
-                              setAppOpen(false)
-                              handleFieldChange()
-                            }}
-                          >
-                            <Check className={cn('mr-2 h-4 w-4', field.value === app ? 'opacity-100' : 'opacity-0')} />
-                            {app}
-                          </CommandItem>
-                        ))
+                        'Select application'
                       )}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            )}
-          />
-          {errors.applicationName && <p className="text-xs text-red-500 mt-1">{errors.applicationName.message}</p>}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search application..." />
+                      <CommandEmpty>No application found.</CommandEmpty>
+                      <CommandGroup>
+                        {appLoading ? (
+                          <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...
+                          </div>
+                        ) : appError ? (
+                          <div className="flex items-center justify-center p-6 text-sm text-destructive">
+                            {appError}
+                          </div>
+                        ) : (
+                          appOptions.map(app => (
+                            <CommandItem
+                              key={app}
+                              value={app}
+                              onSelect={() => {
+                                field.onChange(app)
+                                setAppOpen(false)
+                                handleFieldChange()
+                              }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', field.value === app ? 'opacity-100' : 'opacity-0')} />
+                              {app}
+                            </CommandItem>
+                          ))
+                        )}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+            />
+            {errors.applicationName && <p className="text-xs text-destructive mt-1">{errors.applicationName.message}</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Type of Cert</label>
-          <Input 
-            value={certificate.isAmexCert === 'Yes' ? 'Amex cert' : 'Non Amex'} 
-            disabled
-            className="bg-gray-50 text-gray-600"
-          />
-          <p className="text-xs text-muted-foreground mt-1">Certificate type cannot be modified</p>
-        </div>
+
+        {/* Non-Amex Certificate Options */}
         {certificate.isAmexCert === 'No' && (
-          <div>
-            <Controller
-              name="validTo"
-              control={control}
-              rules={{ required: 'Expiry Date is required' }}
-              render={({ field }) => (
-                <DatePicker
-                  label="Expiry Date"
-                  description="Select expiry date"
-                  placeholder="Pick a date"
-                  {...field}
-                  onChange={date => { field.onChange(date); handleFieldChange() }}
-                  value={field.value}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
+              <CalendarIcon className="h-4 w-4" />
+              Certificate Configuration
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/50 rounded-lg p-3">
+              <div>
+                <Controller
+                  name="validTo"
+                  control={control}
+                  rules={{ required: 'Expiry Date is required' }}
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Expiry Date"
+                      description="Select expiry date"
+                      placeholder="Pick a date"
+                      {...field}
+                      onChange={date => { field.onChange(date); handleFieldChange() }}
+                      value={field.value}
+                    />
+                  )}
                 />
-              )}
-            />
-            {errors.validTo && <p className="text-xs text-red-500 mt-1">{errors.validTo.message}</p>}
+                {errors.validTo && <p className="text-xs text-destructive mt-1">{errors.validTo.message}</p>}
+              </div>
+              <div>
+                <label className="text-sm font-medium">Environment</label>
+                <Controller
+                  name="environment"
+                  control={control}
+                  render={({ field }) => (
+                    <Select 
+                      value={field.value} 
+                      onValueChange={value => { field.onChange(value); handleFieldChange() }}
+                    >
+                      <SelectTrigger className="mt-1 bg-background">
+                        <SelectValue placeholder="Select Environment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="E1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            E1 (Production)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="E2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                            E2 (Staging)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="E3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            E3 (Development)
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.environment && <p className="text-xs text-destructive mt-1">{errors.environment.message}</p>}
+              </div>
+            </div>
           </div>
         )}
-        {certificate.isAmexCert === 'No' && (
-          <div>
-            <label className="block text-sm font-medium mb-1">Environment</label>
-            <Controller
-              name="environment"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={value => { field.onChange(value); handleFieldChange() }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Environment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="E1">E1</SelectItem>
-                    <SelectItem value="E2">E2</SelectItem>
-                    <SelectItem value="E3">E3</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+
+        {/* Comments Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-base font-semibold text-primary">
+            <MessageSquare className="h-4 w-4" />
+            Additional Information
+          </div>
+
+          <div className="bg-muted/50 rounded-lg p-3">
+            <label className="text-sm font-medium">Comments</label>
+            <Textarea 
+              {...register('comment')} 
+              placeholder="Add any additional comments or notes..." 
+              className="mt-1 resize-none h-20 bg-background" 
+              rows={2}
             />
-            {errors.environment && <p className="text-xs text-red-500 mt-1">{errors.environment.message}</p>}
-          </div>
-        )}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium mb-1">Comments</label>
-          <Textarea {...register('comment')} placeholder="Comments" rows={2} />
-          {errors.comment && <p className="text-xs text-red-500 mt-1">{errors.comment.message}</p>}
-        </div>
-      </div>
-      <div>
-        <Button type="button" variant="outline" size="sm" onClick={() => { setShowMore(v => !v); handleFieldChange() }}>
-          {showMore ? 'Hide Additional Options' : 'Add More Options'}
-        </Button>
-      </div>
-      {showMore && (
-        <div className="mt-4 border-t pt-4">
-          <h3 className="text-base font-medium mb-2">Additional Options</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Server Name</label>
-              <Input {...register('serverName', { onChange: handleFieldChange })} placeholder="Server Name" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Key Store Path</label>
-              <Input {...register('keystorePath', { onChange: handleFieldChange })} placeholder="Key Store Path" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">URI</label>
-              <Input {...register('uri', { onChange: handleFieldChange })} placeholder="URI" />
-            </div>
+            {errors.comment && <p className="text-xs text-destructive mt-1">{errors.comment.message}</p>}
           </div>
         </div>
-      )}
-      <div className="flex gap-2 mt-6">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Updating...' : 'Update Certificate'}
-        </Button>
-        <DrawerClose asChild>
-          <Button type="button" variant="outline">
-            Cancel
+
+        {/* Additional Options Toggle */}
+        <div>
+          <Button 
+            type="button" 
+            variant="outline" 
+            size="sm" 
+            onClick={() => { setShowMore(v => !v); handleFieldChange() }}
+            className="text-primary"
+          >
+            {showMore ? 'Hide Additional Options' : 'Add More Options'}
           </Button>
-        </DrawerClose>
-      </div>
-    </form>
+        </div>
+
+        {/* Additional Options Section */}
+        {showMore && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
+              <Settings className="h-4 w-4" />
+              Additional Options
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-muted/50 rounded-lg p-3">
+              <div>
+                <label className="text-sm font-medium">Server Name</label>
+                <Input 
+                  {...register('serverName', { onChange: handleFieldChange })} 
+                  placeholder="Server Name" 
+                  className="mt-1 bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Key Store Path</label>
+                <Input 
+                  {...register('keystorePath', { onChange: handleFieldChange })} 
+                  placeholder="Key Store Path" 
+                  className="mt-1 bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">URI</label>
+                <Input 
+                  {...register('uri', { onChange: handleFieldChange })} 
+                  placeholder="URI" 
+                  className="mt-1 bg-background"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-background py-3 border-t">
+          <DrawerClose asChild>
+            <Button type="button" variant="outline" className="min-w-[100px]">
+              Cancel
+            </Button>
+          </DrawerClose>
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="min-w-[140px]"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Update Certificate
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 } 

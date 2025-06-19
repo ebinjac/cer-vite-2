@@ -3,6 +3,8 @@ node_modules
 dist
 dist-ssr
 *.local
+.cursorrules/
+.vscode/
 .vscode
 .cursor/rules
 .cursorrules

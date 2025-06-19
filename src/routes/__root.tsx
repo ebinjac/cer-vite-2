@@ -8,6 +8,7 @@ import TanstackQueryLayout from '../integrations/tanstack-query/layout'
 import type { QueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/ui/sidebar'
 import { Preloader } from '@/components/ui/preloader'
+import { Toaster } from '@/components/ui/sonner'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -26,6 +27,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
           <TanstackQueryLayout />
         </div>
       </div>
+      <Toaster position="bottom-left" />
     </>
   ),
 })

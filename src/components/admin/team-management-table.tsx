@@ -32,12 +32,12 @@ export function TeamManagementTable({ teams, onEdit }: TeamManagementTableProps)
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="sticky left-0 bg-background w-[200px]">Team Name</TableHead>
-            <TableHead className="min-w-[100px]">Function</TableHead>
-            <TableHead className="min-w-[150px]">Snow Group</TableHead>
-            <TableHead className="min-w-[300px]">Applications</TableHead>
-            <TableHead className="min-w-[150px]">Escalation</TableHead>
-            <TableHead className="sticky right-0 bg-background w-[50px]"></TableHead>
+            <TableHead className="sticky left-0 bg-background w-[250px]">Team Name</TableHead>
+            <TableHead className="min-w-[120px]">Function</TableHead>
+            <TableHead className="min-w-[200px]">Snow Group</TableHead>
+            <TableHead className="min-w-[400px]">Applications</TableHead>
+            <TableHead className="min-w-[300px]">Escalation</TableHead>
+            <TableHead className="sticky right-0 bg-background w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -52,27 +52,38 @@ export function TeamManagementTable({ teams, onEdit }: TeamManagementTableProps)
                 </Badge>
               </TableCell>
               <TableCell>{team.snowGroup}</TableCell>
-              <TableCell className="max-w-[300px] truncate" title={team.listOfApplicationNames}>
-                {team.listOfApplicationNames}
+              <TableCell className="whitespace-pre-wrap break-words">
+                {team.listOfApplicationNames.split(',').map((app, i) => (
+                  <Badge 
+                    key={i} 
+                    variant="outline" 
+                    className="mr-1 mb-1"
+                  >
+                    {app.trim()}
+                  </Badge>
+                ))}
               </TableCell>
-              <TableCell>{team.escalation}</TableCell>
+              <TableCell className="whitespace-pre-wrap break-words">
+                {team.escalation.split(',').map((email, i) => (
+                  <Badge 
+                    key={i} 
+                    variant="outline" 
+                    className="mr-1 mb-1"
+                  >
+                    {email.trim()}
+                  </Badge>
+                ))}
+              </TableCell>
               <TableCell className="sticky right-0 bg-background">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onEdit(team)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit Team
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onEdit(team)}
+                  className="h-8 px-2 flex items-center gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
               </TableCell>
             </TableRow>
           ))}

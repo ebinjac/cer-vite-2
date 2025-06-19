@@ -26,8 +26,8 @@ import { TagInput } from "emblor"
 import type { Tag } from "emblor"
 import type { TeamManagement } from '@/hooks/use-team-management'
 import { useUpdateTeam } from '@/hooks/use-team-management'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
+import { Users, Settings, AppWindow, Contact, Bell, Loader2, Save, ShieldCheck, KeyRound } from "lucide-react"
 
 const emailSchema = z.string().email("Please enter a valid email address.").regex(/@aexp\.com$/, {
   message: "Email must be an @aexp.com address."
@@ -141,10 +141,8 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
 
   const handleSubmit = async (data: FormValues) => {
     try {
-      // Debug log for incoming team data
       console.log('Edit Form - Original Team:', team)
       
-      // Construct update data with ID
       const updateData: TeamManagement = {
         id: team.id,
         teamName: data.teamName,
@@ -164,7 +162,6 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
         description: "The team has been updated successfully."
       })
       
-      // Call parent onSubmit callback
       onSubmit(updateData)
     } catch (error) {
       toast.error("Error", {
@@ -176,39 +173,51 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
   // Common TagInput styles
   const tagInputStyles = {
     tagList: {
-      container: "gap-1",
+      container: "gap-1.5",
     },
-    input: "rounded-md transition-[color,box-shadow] placeholder:text-muted-foreground/70 focus-visible:border-ring outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+    input: "rounded-md border-input bg-background transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/70",
     tag: {
-      body: "relative h-7 bg-background border border-input hover:bg-background rounded-md font-medium text-xs ps-2 pe-7 transition-colors hover:border-ring",
-      closeButton: "absolute -inset-y-px -end-px p-0 rounded-s-none rounded-e-md flex size-7 transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-muted-foreground/80 hover:text-foreground",
+      body: "relative h-7 bg-muted/50 hover:bg-muted border border-input rounded-md font-medium text-xs ps-2 pe-7 transition-colors",
+      closeButton: "absolute -inset-y-px -end-px p-0 rounded-s-none rounded-e-md flex size-7 items-center justify-center transition-colors outline-none text-muted-foreground/80 hover:text-foreground hover:bg-muted/80",
     },
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="w-full max-w-3xl mx-auto">
+      <div className="space-y-2 mb-6">
+        <h2 className="flex items-center gap-2 text-2xl font-semibold">
+          <Users className="h-6 w-6" />
+          Edit Team
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Update team settings and configuration
+        </p>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           {/* Basic Information Section */}
-          <Card className="border-none shadow-none">
-            <CardHeader className="px-0 pt-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 space-y-2">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
+              <Settings className="h-4 w-4" />
+              Basic Information
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/50 rounded-lg p-4">
               <FormField
                 control={form.control}
                 name="teamName"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
+                  <FormItem className="space-y-1.5">
                     <FormLabel className="text-sm font-medium">Team Name</FormLabel>
                     <FormControl>
                       <Input 
-                        className="h-8 border-2 focus-visible:ring-2" 
-                        placeholder="Enter team name" 
+                        className="bg-background" 
+                        placeholder="Enter team name"
                         {...field} 
                       />
                     </FormControl>
-                    <FormMessage className="text-xs" />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -217,72 +226,127 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                 control={form.control}
                 name="functionHandled"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-sm font-medium">Function</FormLabel>
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-sm font-medium">Function Type</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className="h-8 border-2 focus-visible:ring-2">
-                          <SelectValue placeholder="Select function" />
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select function type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="certificate">Certificate</SelectItem>
-                        <SelectItem value="serviceid">Service ID</SelectItem>
+                        <SelectItem value="certificate">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-green-500" />
+                            Certificate
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="serviceid">
+                          <div className="flex items-center gap-2">
+                            <KeyRound className="h-4 w-4 text-blue-500" />
+                            Service ID
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage className="text-xs" />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* Applications Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
+              <AppWindow className="h-4 w-4" />
+              Applications
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-4">
+              <FormField
+                control={form.control}
+                name="applications"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-sm font-medium">Managed Applications</FormLabel>
+                    <FormControl>
+                      <TagInput
+                        id="applications"
+                        tags={field.value}
+                        setTags={field.onChange}
+                        placeholder="Type application name and press Enter"
+                        styleClasses={{
+                          ...tagInputStyles,
+                          input: tagInputStyles.input + " bg-background",
+                        }}
+                        inlineTags={false}
+                        inputFieldPosition="top"
+                        activeTagIndex={activeAppTagIndex}
+                        setActiveTagIndex={setActiveAppTagIndex}
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Add all applications that this team will manage
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
 
           {/* Contact Information Section */}
-          <Card className="border-none shadow-none">
-            <CardHeader className="px-0 pt-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Contact Information</CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 space-y-2">
-              <div className="grid gap-4">
-                <FormField
-                  control={form.control}
-                  name="escalation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Escalation Emails</FormLabel>
-                      <FormControl>
-                        <TagInput
-                          tags={field.value}
-                          setTags={field.onChange}
-                          placeholder="Enter @aexp.com email and press Enter"
-                          activeTagIndex={activeEscalationTagIndex}
-                          setActiveTagIndex={setActiveEscalationTagIndex}
-                          validate={validateEmail}
-                          styleClasses={tagInputStyles}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Add @aexp.com email addresses for escalation notifications
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
+              <Contact className="h-4 w-4" />
+              Contact Information
+            </div>
 
+            <div className="grid gap-4 bg-muted/50 rounded-lg p-4">
+              <FormField
+                control={form.control}
+                name="escalation"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-sm font-medium">Escalation Emails</FormLabel>
+                    <FormControl>
+                      <TagInput
+                        tags={field.value}
+                        setTags={field.onChange}
+                        placeholder="Enter @aexp.com email and press Enter"
+                        activeTagIndex={activeEscalationTagIndex}
+                        setActiveTagIndex={setActiveEscalationTagIndex}
+                        validate={validateEmail}
+                        styleClasses={{
+                          ...tagInputStyles,
+                          input: tagInputStyles.input + " bg-background",
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Add @aexp.com email addresses for escalation notifications
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="snowGroup"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
+                    <FormItem className="space-y-1.5">
                       <FormLabel className="text-sm font-medium">Snow Group</FormLabel>
                       <FormControl>
                         <Input 
-                          className="h-8 border-2 focus-visible:ring-2" 
-                          placeholder="Enter snow group" 
+                          className="bg-background" 
+                          placeholder="Enter snow group"
                           {...field} 
                         />
                       </FormControl>
-                      <FormMessage className="text-xs" />
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -291,70 +355,42 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                   control={form.control}
                   name="prcGroup"
                   render={({ field }) => (
-                    <FormItem className="space-y-1">
+                    <FormItem className="space-y-1.5">
                       <FormLabel className="text-sm font-medium">PRC Group</FormLabel>
                       <FormControl>
                         <Input 
-                          className="h-8 border-2 focus-visible:ring-2" 
-                          placeholder="Enter PRC group" 
+                          className="bg-background" 
+                          placeholder="Enter PRC group"
                           {...field} 
                         />
                       </FormControl>
-                      <FormMessage className="text-xs" />
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
 
-        {/* Applications & Alerts Section */}
-        <Card className="border-none shadow-none">
-          <CardHeader className="px-0 pt-2 pb-1.5">
-            <CardTitle className="text-sm font-semibold text-muted-foreground">Applications & Alerts</CardTitle>
-          </CardHeader>
-          <CardContent className="px-0 space-y-2">
-            <FormField
-              control={form.control}
-              name="applications"
-              render={({ field }) => (
-                <FormItem className="space-y-1">
-                  <FormLabel className="text-sm font-medium">Applications</FormLabel>
-                  <FormControl>
-                    <TagInput
-                      id="applications"
-                      tags={field.value}
-                      setTags={field.onChange}
-                      placeholder="Type application name and press Enter"
-                      styleClasses={{
-                        ...tagInputStyles,
-                        input: tagInputStyles.input + " h-8 border-2 focus-visible:ring-2",
-                        tagList: {
-                          container: "gap-1",
-                        },
-                      }}
-                      inlineTags={false}
-                      inputFieldPosition="top"
-                      activeTagIndex={activeAppTagIndex}
-                      setActiveTagIndex={setActiveAppTagIndex}
-                    />
-                  </FormControl>
-                  <FormDescription className="text-[10px]">
-                    Type each application name and press Enter
-                  </FormDescription>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
+          {/* Alert Configuration Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
+              <Bell className="h-4 w-4" />
+              Alert Configuration
+            </div>
 
-            <div className="space-y-2">
+            <div className="grid gap-4 bg-muted/50 rounded-lg p-4">
               <FormField
                 control={form.control}
                 name="alert1"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-sm font-medium">Alert Level 1</FormLabel>
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                        Alert Level 1
+                      </div>
+                    </FormLabel>
                     <FormControl>
                       <TagInput
                         id="alert1"
@@ -363,21 +399,19 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                         placeholder="Type email and press Enter"
                         styleClasses={{
                           ...tagInputStyles,
-                          input: tagInputStyles.input + " h-8 border-2 focus-visible:ring-2",
-                          tagList: {
-                            container: "gap-1",
-                          },
+                          input: tagInputStyles.input + " bg-background",
                         }}
                         inlineTags={false}
                         inputFieldPosition="top"
                         activeTagIndex={activeAlert1TagIndex}
                         setActiveTagIndex={setActiveAlert1TagIndex}
+                        validate={validateEmail}
                       />
                     </FormControl>
-                    <FormDescription className="text-[10px]">
-                      Enter email addresses for Alert Level 1
+                    <FormDescription className="text-xs">
+                      Enter email addresses for initial alerts
                     </FormDescription>
-                    <FormMessage className="text-xs" />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -386,8 +420,13 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                 control={form.control}
                 name="alert2"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-sm font-medium">Alert Level 2</FormLabel>
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-500" />
+                        Alert Level 2
+                      </div>
+                    </FormLabel>
                     <FormControl>
                       <TagInput
                         id="alert2"
@@ -396,21 +435,19 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                         placeholder="Type email and press Enter"
                         styleClasses={{
                           ...tagInputStyles,
-                          input: tagInputStyles.input + " h-8 border-2 focus-visible:ring-2",
-                          tagList: {
-                            container: "gap-1",
-                          },
+                          input: tagInputStyles.input + " bg-background",
                         }}
                         inlineTags={false}
                         inputFieldPosition="top"
                         activeTagIndex={activeAlert2TagIndex}
                         setActiveTagIndex={setActiveAlert2TagIndex}
+                        validate={validateEmail}
                       />
                     </FormControl>
-                    <FormDescription className="text-[10px]">
-                      Enter email addresses for Alert Level 2
+                    <FormDescription className="text-xs">
+                      Enter email addresses for intermediate alerts
                     </FormDescription>
-                    <FormMessage className="text-xs" />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -419,8 +456,13 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                 control={form.control}
                 name="alert3"
                 render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-sm font-medium">Alert Level 3</FormLabel>
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                        Alert Level 3
+                      </div>
+                    </FormLabel>
                     <FormControl>
                       <TagInput
                         id="alert3"
@@ -429,36 +471,48 @@ export function EditTeamForm({ team, onSubmit, hideSubmitButton }: EditTeamFormP
                         placeholder="Type email and press Enter"
                         styleClasses={{
                           ...tagInputStyles,
-                          input: tagInputStyles.input + " h-8 border-2 focus-visible:ring-2",
-                          tagList: {
-                            container: "gap-1",
-                          },
+                          input: tagInputStyles.input + " bg-background",
                         }}
                         inlineTags={false}
                         inputFieldPosition="top"
                         activeTagIndex={activeAlert3TagIndex}
                         setActiveTagIndex={setActiveAlert3TagIndex}
+                        validate={validateEmail}
                       />
                     </FormControl>
-                    <FormDescription className="text-[10px]">
-                      Enter email addresses for Alert Level 3
+                    <FormDescription className="text-xs">
+                      Enter email addresses for critical alerts
                     </FormDescription>
-                    <FormMessage className="text-xs" />
+                    <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-          </CardContent>
-        </Card>
-
-        {!hideSubmitButton && (
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isUpdating} className="h-8 text-sm">
-              {isUpdating ? "Saving..." : "Update Team"}
-            </Button>
           </div>
-        )}
-      </form>
-    </Form>
+
+          {!hideSubmitButton && (
+            <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-background py-3 border-t">
+              <Button 
+                type="submit" 
+                disabled={isUpdating}
+                className="min-w-[140px]"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Update Team
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </form>
+      </Form>
+    </div>
   )
 } 

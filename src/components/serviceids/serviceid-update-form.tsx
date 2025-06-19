@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { toast } from 'sonner'
-import { SERVICEID_UPDATE_API, APPLICATION_LIST_API } from '@/lib/api-endpoints'
+import { SERVICEID_UPDATE_API, APPLICATION_LIST_API_SERVICEID } from '@/lib/api-endpoints'
 import { useTeamStore } from '@/store/team-store'
 import {
   Form,
@@ -102,31 +102,37 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
     setAppLoading(true)
     setAppError(null)
     
-    fetch(`${APPLICATION_LIST_API}?team=${selectedTeam}`)
+    fetch(`${APPLICATION_LIST_API_SERVICEID(selectedTeam)}`)
       .then(async res => {
-        if (!res.ok) throw new Error('Failed to fetch applications')
+        if (!res.ok) {
+          throw new Error('Failed to fetch applications')
+        }
         const text = await res.text()
-        let apps: string[] = []
         
+        // Handle the array format [CASM, Mitigator, Traceable, KMS]
+        let apps: string[] = []
         try {
+          // First try to parse as JSON
           apps = JSON.parse(text)
         } catch {
+          // If JSON parse fails, handle as comma-separated string
           apps = text
-            .replace(/[\[\]]/g, '')
+            .replace(/[\[\]]/g, '') // Remove square brackets
             .split(',')
-            .map(t => t.trim())
-            .filter(Boolean)
+            .map(app => app.trim()) // Remove whitespace
+            .filter(Boolean) // Remove empty strings
         }
         
-        // Ensure the current application is included in the options
+        // Ensure the current application is included in the options if not already present
         if (serviceId.application && !apps.includes(serviceId.application)) {
-          apps = [serviceId.application, ...apps]
+          apps.unshift(serviceId.application)
         }
         
         setAppOptions(apps)
       })
       .catch(err => {
-        setAppError(err.message || 'Failed to load applications')
+        console.error('Error fetching applications:', err)
+        setAppError('Failed to load applications')
       })
       .finally(() => {
         setAppLoading(false)
@@ -161,44 +167,59 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="space-y-2 mb-6">
-        <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="space-y-3 mb-6">
+        <h2 className="flex items-center gap-2 text-2xl font-semibold">
           <Settings className="h-6 w-6" />
           Update Service ID
         </h2>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Service ID:</span>
-          <span className="font-mono font-medium text-foreground bg-muted px-2 py-1 rounded">{serviceId.svcid}</span>
+          <span>ID:</span>
+          <code className="font-mono font-medium text-foreground bg-muted px-2 py-1 rounded">{serviceId.svcid}</code>
         </div>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           {/* Basic Configuration Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-semibold">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
               <Settings className="h-4 w-4" />
               Basic Configuration
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/50 rounded-lg p-3">
               <FormField
                 control={form.control}
                 name="env"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Environment</FormLabel>
+                    <FormLabel className="font-medium">Environment</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Select environment" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="E1">E1 (Production)</SelectItem>
-                        <SelectItem value="E2">E2 (Staging)</SelectItem>
-                        <SelectItem value="E3">E3 (Development)</SelectItem>
+                        <SelectItem value="E1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            E1 (Production)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="E2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                            E2 (Staging)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="E3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            E3 (Development)
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -211,16 +232,26 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
                 name="renewalProcess"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Renewal Process</FormLabel>
+                    <FormLabel className="font-medium">Renewal Process</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Select renewal process" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Manual">Manual</SelectItem>
-                        <SelectItem value="Automated">Automated</SelectItem>
+                        <SelectItem value="Manual">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4 text-orange-500" />
+                            Manual
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Automated">
+                          <div className="flex items-center gap-2">
+                            <Settings className="h-4 w-4 text-green-500" />
+                            Automated
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -233,15 +264,15 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
               control={form.control}
               name="application"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Application</FormLabel>
+                <FormItem className="bg-muted/50 rounded-lg p-3">
+                  <FormLabel className="font-medium">Application</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
                     disabled={appLoading}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-background">
                         <SelectValue 
                           placeholder={
                             appLoading 
@@ -262,7 +293,7 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
                           </div>
                         </SelectItem>
                       ) : appError ? (
-                        <SelectItem value="error" disabled>
+                        <SelectItem value="error" disabled className="text-destructive">
                           {appError}
                         </SelectItem>
                       ) : appOptions.length > 0 ? (
@@ -287,8 +318,8 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
           <Separator className="my-4" />
 
           {/* Expiry Configuration Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-semibold">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
               <CalendarIconAlt className="h-4 w-4" />
               Expiry Configuration
             </div>
@@ -297,24 +328,29 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
               control={form.control}
               name="expDate"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Expiry Date</FormLabel>
+                <FormItem className="flex flex-col bg-muted/50 rounded-lg p-3">
+                  <FormLabel className="font-medium">Expiry Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full pl-3 text-left font-normal",
+                            "w-full pl-3 text-left font-normal bg-background",
                             !field.value && "text-muted-foreground"
                           )}
                         >
                           {field.value ? (
-                            format(field.value, "PPP")
+                            <div className="flex items-center gap-2">
+                              <CalendarIcon className="h-4 w-4 text-primary" />
+                              {format(field.value, "PPP")}
+                            </div>
                           ) : (
-                            <span>Pick a date</span>
+                            <div className="flex items-center gap-2">
+                              <CalendarIcon className="h-4 w-4" />
+                              <span>Pick a date</span>
+                            </div>
                           )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -339,8 +375,8 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
           <Separator className="my-4" />
 
           {/* Additional Information Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-base font-semibold">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-primary">
               <MessageSquare className="h-4 w-4" />
               Additional Information
             </div>
@@ -349,12 +385,12 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
               control={form.control}
               name="comment"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Comment</FormLabel>
+                <FormItem className="bg-muted/50 rounded-lg p-3">
+                  <FormLabel className="font-medium">Comment</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Add any additional comments or notes about this service ID..."
-                      className="resize-none h-20"
+                      className="resize-none h-20 bg-background"
                       {...field}
                     />
                   </FormControl>
@@ -365,15 +401,31 @@ export default function ServiceIdUpdateForm({ serviceId, onSuccess, onCancel }: 
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-background py-4 border-t">
-            <Button type="button" variant="outline" onClick={onCancel}>
+          <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-background py-3 border-t">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              className="min-w-[100px]"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Button 
+              type="submit" 
+              disabled={form.formState.isSubmitting}
+              className="min-w-[140px]"
+            >
+              {form.formState.isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Update ID
+                </>
               )}
-              Update Service ID
             </Button>
           </div>
         </form>

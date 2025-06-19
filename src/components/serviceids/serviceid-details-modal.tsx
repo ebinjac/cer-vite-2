@@ -1,23 +1,36 @@
 "use client"
 
+import * as React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { formatDate, getDaysUntilExpiration, getServiceIdCustomStatus } from "@/hooks/use-serviceids"
+import { formatDate, getServiceIdCustomStatus, getDaysUntilExpiration } from "@/hooks/use-serviceids"
 import { cn } from "@/lib/utils"
 import type { ServiceId } from "@/hooks/use-serviceids"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { CopyIcon, XIcon, CheckIcon } from "lucide-react"
+import { CopyIcon, XIcon, CheckIcon, Settings, Calendar, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { useState } from "react"
-import { customStatusColors } from "@/hooks/use-serviceids"
 
 interface ServiceIdDetailsModalProps {
   serviceId: ServiceId | null
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+interface DetailField {
+  label: string
+  value: string | null | undefined
+  copyable?: boolean
+}
+
+interface Section {
+  title: string
+  description: string
+  icon: React.ReactElement
+  fields: DetailField[]
 }
 
 const MotionBadge = motion(Badge)
@@ -86,49 +99,66 @@ const DetailRow = ({
   )
 }
 
+const getStatusStyles = (status: string) => {
+  switch (status) {
+    case "Valid":
+      return "bg-green-100 text-green-800 border-green-200"
+    case "Non-Compliant":
+      return "bg-red-100 text-red-800 border-red-200"
+    case "Expiring Soon":
+      return "bg-amber-100 text-amber-800 border-amber-200"
+    default:
+      return "bg-muted text-muted-foreground"
+  }
+}
+
 export function ServiceIdDetailsModal({ serviceId, open, onOpenChange }: ServiceIdDetailsModalProps) {
   if (!serviceId) return null
 
-  const sections = [
+  const sections: Section[] = [
     {
       title: "Basic Information",
-      description: "Core service ID details",
+      description: "Core service ID details and configuration",
+      icon: <Settings className="h-4 w-4" />,
       fields: [
         { label: "Service ID", value: serviceId.svcid, copyable: true },
         { label: "Environment", value: serviceId.env },
         { label: "Application", value: serviceId.application },
-        { label: "Status", value: serviceId.status },
-        { label: "Last Reset", value: formatDate(serviceId.lastReset) },
-        { label: "Expiration Date", value: formatDate(serviceId.expDate) },
         { label: "Renewal Process", value: serviceId.renewalProcess },
+        { label: "Status", value: serviceId.status },
+      ],
+    },
+    {
+      title: "Expiry Information",
+      description: "Expiration and reset details",
+      icon: <Calendar className="h-4 w-4" />,
+      fields: [
+        { label: "Last Reset", value: formatDate(serviceId.lastReset) },
+        { label: "Expiry Date", value: formatDate(serviceId.expDate) },
+        { label: "Last Notification", value: serviceId.lastNotification },
+        { label: "Last Notification On", value: formatDate(serviceId.lastNotificationOn) },
       ],
     },
     {
       title: "Management Information",
       description: "Team and administrative details",
+      icon: <Settings className="h-4 w-4" />,
       fields: [
         { label: "Renewing Team", value: serviceId.renewingTeamName },
-        { label: "Service ID Owner", value: serviceId.svcidOwner },
-        { label: "App Custodian", value: serviceId.appCustodian },
-        { label: "App AIM ID", value: serviceId.appAimId },
         { label: "Acknowledged By", value: serviceId.acknowledgedBy },
+        { label: "App Custodian", value: serviceId.appCustodian },
+        { label: "Service ID Owner", value: serviceId.svcidOwner },
+        { label: "App AIM ID", value: serviceId.appAimId, copyable: true },
         { label: "Change Number", value: serviceId.changeNumber, copyable: true },
-      ],
-    },
-    {
-      title: "Notification History",
-      description: "Last notification details",
-      fields: [
-        { label: "Last Notification", value: serviceId.lastNotification?.toString() },
-        { label: "Last Notification On", value: formatDate(serviceId.lastNotificationOn) },
       ],
     },
     {
       title: "Additional Information",
       description: "Description and comments",
+      icon: <MessageSquare className="h-4 w-4" />,
       fields: [
         { label: "Description", value: serviceId.description },
-        { label: "Comments", value: serviceId.comment },
+        { label: "Comment", value: serviceId.comment },
       ],
     },
   ]
@@ -162,12 +192,13 @@ export function ServiceIdDetailsModal({ serviceId, open, onOpenChange }: Service
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[90vw] md:max-w-[85vw] lg:max-w-[80vw] max-h-[90vh] p-0 flex flex-col overflow-y-auto">
+      <DialogContent className="max-w-[90vw] md:max-w-[85vw] lg:max-w-[80vw] max-h-[90vh] p-0 flex flex-col overflow-y-auto DialogContent">
         <DialogHeader className="px-6 py-4 border-b sticky top-0 bg-background z-10">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
-                <DialogTitle className="text-xl font-semibold">
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
                   {serviceId.svcid}
                 </DialogTitle>
                 <Button variant="ghost" size="icon" className="rounded-full" onClick={() => onOpenChange(false)}>
@@ -178,7 +209,7 @@ export function ServiceIdDetailsModal({ serviceId, open, onOpenChange }: Service
               <div className="flex items-center gap-4">
                 <MotionBadge
                   variant="outline"
-                  className={cn("px-3 py-1 text-xs font-medium", customStatusColors[customStatus])}
+                  className={cn("px-3 py-1 text-xs font-medium", getStatusStyles(customStatus))}
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 10, delay: 0.2 }}
@@ -202,7 +233,7 @@ export function ServiceIdDetailsModal({ serviceId, open, onOpenChange }: Service
                         transition={{ delay: 0.3 }}
                       >
                         {daysLeft === 0 ? (
-                          "Expired"
+                          "Non-Compliant"
                         ) : (
                           <>
                             <span className="font-bold">{daysLeft}</span>
@@ -251,7 +282,10 @@ export function ServiceIdDetailsModal({ serviceId, open, onOpenChange }: Service
                 variants={cardVariants}
               >
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{section.title}</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {section.icon}
+                    {section.title}
+                  </CardTitle>
                   <CardDescription>{section.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -263,7 +297,8 @@ export function ServiceIdDetailsModal({ serviceId, open, onOpenChange }: Service
                         value={field.value}
                         copyable={field.copyable}
                         className={cn(
-                          (field.label === "Comments" || field.label === "Description") && "items-start",
+                          field.label === "Comment" && "items-start",
+                          field.label === "Description" && "items-start",
                         )}
                       />
                     ))}

@@ -832,7 +832,8 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
   const [tempColumnVisibility, setTempColumnVisibility] = React.useState<ColumnVisibilityState>(columnVisibility)
   const [isColumnMenuOpen, setIsColumnMenuOpen] = React.useState(false)
   const [showDetails, setShowDetails] = React.useState(false)
-  // const [isRenewDrawerOpen, setIsRenewDrawerOpen] = React.useState(false)
+  const [selectedServiceId, setSelectedServiceId] = React.useState<ServiceId | null>(null)
+  const [showDetailsModal, setShowDetailsModal] = React.useState(false)
   
   // Handle expiration filter change
   const handleExpirationFilterChange = (value: string, checked: boolean) => {
@@ -1270,9 +1271,8 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
         const [isDeleting, setIsDeleting] = React.useState(false)
         const [deleteError, setDeleteError] = React.useState<string | null>(null)
         const { refetch } = useServiceIds()
-        // Add local state for renew drawer
         const [isRenewDrawerOpen, setIsRenewDrawerOpen] = React.useState(false)
-        // Remove setSelectedServiceId and setIsRenewDrawerOpen from parent
+
         async function handleDelete() {
           setIsDeleting(true)
           setDeleteError(null)
@@ -1294,15 +1294,18 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
 
         return (
           <>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
                   <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
+                </Button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[160px]">
-                <DropdownMenuItem onClick={() => setShowDetails(true)}>
+                <DropdownMenuItem onClick={() => {
+                  setSelectedServiceId(serviceId)
+                  setShowDetailsModal(true)
+                }}>
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </DropdownMenuItem>
@@ -1314,67 +1317,67 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Renew
                 </DropdownMenuItem>
-            <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteDialogOpen(true)}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent className="max-w-md">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-destructive flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Delete Service ID
-              </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-4">
-                <p>
-                  Are you sure you want to delete this Service ID? This action cannot be undone.
-                </p>
-                <div className="rounded-md border p-4 bg-muted/30">
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-[120px_1fr] gap-1">
-                      <span className="text-sm font-medium">Service ID:</span>
-                      <span className="text-sm font-semibold">{serviceId.svcid}</span>
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogContent className="max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Delete Service ID
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-4">
+                    <p>
+                      Are you sure you want to delete this Service ID? This action cannot be undone.
+                    </p>
+                    <div className="rounded-md border p-4 bg-muted/30">
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-[120px_1fr] gap-1">
+                          <span className="text-sm font-medium">Service ID:</span>
+                          <span className="text-sm font-semibold">{serviceId.svcid}</span>
+                        </div>
+                        <div className="grid grid-cols-[120px_1fr] gap-1">
+                          <span className="text-sm font-medium">Environment:</span>
+                          <Badge variant="outline" className="w-fit">{serviceId.env}</Badge>
+                        </div>
+                        <div className="grid grid-cols-[120px_1fr] gap-1">
+                          <span className="text-sm font-medium">Application:</span>
+                          <span className="text-sm font-mono">{serviceId.application}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr] gap-1">
-                      <span className="text-sm font-medium">Environment:</span>
-                      <Badge variant="outline" className="w-fit">{serviceId.env}</Badge>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] gap-1">
-                      <span className="text-sm font-medium">Application:</span>
-                      <span className="text-sm font-mono">{serviceId.application}</span>
-                    </div>
-                  </div>
-                </div>
-                {deleteError && (
-                  <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
-                    {deleteError}
-                  </div>
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-              <Button 
-                variant="destructive" 
-                onClick={handleDelete} 
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete Service ID'
-                )}
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                    {deleteError && (
+                      <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
+                        {deleteError}
+                      </div>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleDelete} 
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete Service ID'
+                    )}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <Drawer open={showUpdateDrawer} onOpenChange={setShowUpdateDrawer} direction="right">
               <DrawerContent className="min-w-[750px] ml-auto h-full">
@@ -2275,9 +2278,12 @@ const ServiceIdsTable = ({ data, isLoading, isError, error, teamName }: ServiceI
       </CardFooter>
       
       <ServiceIdDetailsModal 
-        serviceId={null}
-        open={false}
-        onOpenChange={() => {}}
+        serviceId={selectedServiceId}
+        open={showDetailsModal}
+        onOpenChange={(open) => {
+          setShowDetailsModal(open)
+          if (!open) setSelectedServiceId(null)
+        }}
       />
     </MotionCard>
   )

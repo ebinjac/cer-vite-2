@@ -38,9 +38,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { MoreHorizontal, Pencil, Search, PlusCircle, ArrowUpDown } from "lucide-react"
+import { MoreHorizontal, Pencil, Search, Plus, ArrowUpDown } from "lucide-react"
 import type { TeamManagement, TeamManagementInput } from '@/hooks/use-team-management'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Drawer,
   DrawerContent,
@@ -53,7 +52,6 @@ import { useState } from "react"
 import { AddTeamForm } from "@/components/admin/add-team-form"
 import { EditTeamForm } from "@/components/admin/edit-team-form"
 import { motion } from "framer-motion"
-import { Plus } from "lucide-react"
 
 const MotionButton = motion(Button)
 
@@ -120,18 +118,7 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
       header: "Snow Group",
       cell: ({ row }) => {
         const value = row.getValue("snowGroup") as string
-        return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="max-w-[200px] truncate">{value}</div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{value}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
+        return <div className="break-all">{value}</div>
       },
     },
     {
@@ -140,34 +127,11 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
       cell: ({ row }) => {
         const apps = (row.getValue("listOfApplicationNames") as string).split(',').map(app => app.trim()).filter(Boolean)
         return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="max-w-[300px]">
-                  {apps.length > 2 ? (
-                    <div className="flex gap-1 items-center">
-                      <Badge variant="outline" className="whitespace-nowrap">{apps[0]}</Badge>
-                      <Badge variant="outline" className="whitespace-nowrap">{apps[1]}</Badge>
-                      <Badge variant="secondary" className="whitespace-nowrap">+{apps.length - 2}</Badge>
-                    </div>
-                  ) : (
-                    <div className="flex gap-1 flex-wrap">
-                      {apps.map((app, i) => (
-                        <Badge key={i} variant="outline" className="whitespace-nowrap">{app}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[300px]">
-                <div className="flex gap-1 flex-wrap">
-                  {apps.map((app, i) => (
-                    <Badge key={i} variant="outline">{app}</Badge>
-                  ))}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex gap-1 flex-wrap">
+            {apps.map((app, i) => (
+              <Badge key={i} variant="outline" className="whitespace-nowrap">{app}</Badge>
+            ))}
+          </div>
         )
       },
     },
@@ -177,34 +141,11 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
       cell: ({ row }) => {
         const emails = (row.getValue("escalation") as string).split(',').map(email => email.trim()).filter(Boolean)
         return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="max-w-[200px]">
-                  {emails.length > 2 ? (
-                    <div className="flex gap-1 items-center">
-                      <Badge variant="outline" className="whitespace-nowrap">{emails[0]}</Badge>
-                      <Badge variant="outline" className="whitespace-nowrap">{emails[1]}</Badge>
-                      <Badge variant="secondary" className="whitespace-nowrap">+{emails.length - 2}</Badge>
-                    </div>
-                  ) : (
-                    <div className="flex gap-1 flex-wrap">
-                      {emails.map((email, i) => (
-                        <Badge key={i} variant="outline" className="whitespace-nowrap">{email}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[300px]">
-                <div className="flex gap-1 flex-wrap">
-                  {emails.map((email, i) => (
-                    <Badge key={i} variant="outline">{email}</Badge>
-                  ))}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex gap-1 flex-wrap">
+            {emails.map((email, i) => (
+              <Badge key={i} variant="outline" className="whitespace-nowrap">{email}</Badge>
+            ))}
+          </div>
         )
       },
     },
@@ -213,18 +154,7 @@ export function TeamsTable({ data, isLoading, isError, error, onEdit, onAdd }: T
       header: "PRC Group",
       cell: ({ row }) => {
         const value = row.getValue("prcGroup") as string
-        return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="max-w-[200px] truncate">{value}</div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{value}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
+        return <div className="break-all">{value}</div>
       },
     },
     {

@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { CalendarIcon } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { Settings, MessageSquare } from 'lucide-react'
 
 const serviceIdFormSchema = z.object({
   svcid: z.string().min(3, 'Service ID must be at least 3 characters'),
@@ -135,55 +136,61 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {/* Basic Information Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-base font-semibold">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-4 w-4"
-            >
-              <path d="M10 2a3 3 0 0 1 3 3v1h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2V5a3 3 0 0 1 3-3Z" />
-            </svg>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-base font-semibold text-primary">
+            <Settings className="h-4 w-4" />
             Basic Information
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-3 bg-muted/50 rounded-lg p-3">
             <FormField
               control={form.control}
               name="svcid"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Service ID</FormLabel>
+                  <FormLabel className="font-medium">Service ID</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter service ID" className="font-mono" {...field} />
+                    <Input placeholder="Enter service ID" className="font-mono text-sm bg-background" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="env"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Environment</FormLabel>
+                    <FormLabel className="font-medium">Environment</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Select environment" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="E1">E1 (Production)</SelectItem>
-                        <SelectItem value="E2">E2 (Staging)</SelectItem>
-                        <SelectItem value="E3">E3 (Development)</SelectItem>
+                        <SelectItem value="E1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            E1 (Production)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="E2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                            E2 (Staging)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="E3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            E3 (Development)
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -196,16 +203,26 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
                 name="renewalProcess"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Renewal Process</FormLabel>
+                    <FormLabel className="font-medium">Renewal Process</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background">
                           <SelectValue placeholder="Select renewal process" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Manual">Manual</SelectItem>
-                        <SelectItem value="Automated">Automated</SelectItem>
+                        <SelectItem value="Manual">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4 text-orange-500" />
+                            Manual
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Automated">
+                          <div className="flex items-center gap-2">
+                            <Settings className="h-4 w-4 text-green-500" />
+                            Automated
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -219,7 +236,7 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
               name="application"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Application</FormLabel>
+                  <FormLabel className="font-medium">Application</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
@@ -227,7 +244,7 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
                     onOpenChange={setAppOpen}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-background">
                         <SelectValue placeholder={appLoading ? 'Loading applications...' : appError ? 'Failed to load applications' : 'Select application'} />
                       </SelectTrigger>
                     </FormControl>
@@ -240,7 +257,7 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
                           </div>
                         </SelectItem>
                       ) : appError ? (
-                        <SelectItem value="error" disabled>{appError}</SelectItem>
+                        <SelectItem value="error" disabled className="text-destructive">{appError}</SelectItem>
                       ) : appOptions.length > 0 ? (
                         appOptions.map(app => (
                           <SelectItem key={app} value={app}>{app}</SelectItem>
@@ -258,8 +275,8 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
         </div>
 
         {/* Expiry Configuration Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-base font-semibold">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-base font-semibold text-primary">
             <CalendarIcon className="h-4 w-4" />
             Expiry Configuration
           </div>
@@ -268,24 +285,29 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
             control={form.control}
             name="expDate"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Expiry Date</FormLabel>
+              <FormItem className="bg-muted/50 rounded-lg p-3">
+                <FormLabel className="font-medium">Expiry Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
                         variant={"outline"}
                         className={cn(
-                          "w-full pl-3 text-left font-normal",
+                          "w-full pl-3 text-left font-normal bg-background",
                           !field.value && "text-muted-foreground"
                         )}
                       >
                         {field.value ? (
-                          format(field.value, "PPP")
+                          <div className="flex items-center gap-2">
+                            <CalendarIcon className="h-4 w-4 text-primary" />
+                            {format(field.value, "PPP")}
+                          </div>
                         ) : (
-                          <span>Pick a date</span>
+                          <div className="flex items-center gap-2">
+                            <CalendarIcon className="h-4 w-4" />
+                            <span>Pick a date</span>
+                          </div>
                         )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
@@ -308,18 +330,9 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
         </div>
 
         {/* Additional Information Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-base font-semibold">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-4 w-4"
-            >
-              <path d="M7 8h6M7 12h6M5 16h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" />
-            </svg>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-base font-semibold text-primary">
+            <MessageSquare className="h-4 w-4" />
             Additional Information
           </div>
 
@@ -327,12 +340,12 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
             control={form.control}
             name="comment"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Comment</FormLabel>
+              <FormItem className="bg-muted/50 rounded-lg p-3">
+                <FormLabel className="font-medium">Comment</FormLabel>
                 <FormControl>
                   <Textarea
                     placeholder="Add any additional comments or notes about this service ID..."
-                    className="resize-none h-20"
+                    className="resize-none h-20 bg-background"
                     {...field}
                   />
                 </FormControl>
@@ -343,12 +356,23 @@ export default function ServiceIdForm({ onSuccess }: ServiceIdFormProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end pt-4 sticky bottom-0 bg-background py-4 border-t">
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <div className="flex justify-end pt-4 sticky bottom-0 bg-background py-3 border-t">
+          <Button 
+            type="submit" 
+            disabled={form.formState.isSubmitting}
+            className="min-w-[140px]"
+          >
+            {form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Settings className="mr-2 h-4 w-4" />
+                Create ID
+              </>
             )}
-            Create Service ID
           </Button>
         </div>
       </form>
