@@ -13,13 +13,14 @@ import { CERTIFICATE_SAVE_API, APPLICATION_LIST_API } from '@/lib/api-endpoints'
 import { useTeamStore } from '@/store/team-store'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { AlertCircle, Check, ChevronDown, ChevronsUpDown, ClipboardList, HelpCircle, Info, Loader2, Plus, Server } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, ChevronsUpDown, ClipboardList, HelpCircle, Info, Loader2, Plus, Server, ShieldCheck, Calendar, MessageSquare, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCertificateAddFormStore } from '@/store/certificate-add-form-store'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Tooltip,
   TooltipContent,
@@ -124,7 +125,7 @@ export function CertificateAddDrawerForm({ onSuccess, onCertificateAdded }: { on
   }, [isSubmitSuccessful])
 
   // Helper to clear error on any field change
-  function handleFieldChange () {
+  function handleFieldChange() {
     if (apiError) setApiError(null)
   }
 
@@ -223,490 +224,592 @@ export function CertificateAddDrawerForm({ onSuccess, onCertificateAdded }: { on
     if (isAmexCert === 'Yes') {
       return {
         title: "Amex Certificate",
-        description: "Certificates procured within American Express and signed by internal Certificate Authority (CA).",
-        color: "bg-blue-50 border-blue-200 text-blue-700"
+        description: "Internal certificates issued by American Express Certificate Authority",
+        icon: <ShieldCheck className="h-5 w-5 text-blue-600" />,
+        color: "border-blue-200 bg-blue-50/50"
       }
     } else {
       return {
         title: "Non-Amex Certificate",
-        description: "External certificates not issued by American Express, but by third-party Certificate Authorities.",
-        color: "bg-green-50 border-green-200 text-green-700"
+        description: "External certificates issued by third-party Certificate Authorities",
+        icon: <ShieldCheck className="h-5 w-5 text-emerald-600" />,
+        color: "border-emerald-200 bg-emerald-50/50"
       }
     }
   }, [isAmexCert])
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-4 overflow-y-auto">
-      <AnimatePresence>
-        {apiError && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{apiError}</AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={fadeIn}
-        className="space-y-6"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">New Certificate</h2>
-            <p className="text-muted-foreground text-sm mt-1">Add a new certificate to the system</p>
-          </div>
-          <Badge 
-            variant="outline" 
-            className={cn(
-              "gap-1 items-center text-sm",
-              isAmexCert === 'Yes'
-                ? "bg-blue-50 text-blue-700 border-blue-200" 
-                : "bg-green-50 text-green-700 border-green-200"
-            )}
-          >
-            {isAmexCert === 'Yes' ? 'Amex Certificate' : 'Non-Amex Certificate'}
-          </Badge>
-        </div>
-        
-        {/* Certificate Type Info Card */}
-        <motion.div
-          variants={fadeIn}
-          transition={{ delay: 0.2 }}
-          className={cn(
-            "rounded-md border p-4",
-            certTypeInfo.color
-          )}
-        >
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-sm">{certTypeInfo.title}</h4>
-              <p className="text-sm mt-1">{certTypeInfo.description}</p>
-              <div className="text-xs mt-2 font-medium">
-                {isAmexCert === 'Yes' 
-                  ? "Used for internal applications and services within the American Express ecosystem."
-                  : "Used for public-facing applications and services requiring trusted third-party validation."
-                }
-              </div>
-            </div>
-          </div>
-        </motion.div>
-        
-        <div>
-          <div className="flex items-center mb-4">
-            <h3 className="text-base font-medium flex items-center">
-              <ClipboardList className="h-4 w-4 mr-2 text-primary" />
-              Primary Information
-            </h3>
-            <Separator className="flex-1 ml-3" />
-          </div>
-          
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-1"
-            variants={staggerChildren}
-          >
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium mb-1.5">
-                Common Name <span className="text-red-500">*</span>
-              </label>
-              <Input 
-                {...register('commonName', { onChange: handleFieldChange })} 
-                placeholder="e.g., example.com" 
-                className={cn(
-                  "transition-all duration-200",
-                  errors.commonName && "ring-1 ring-red-500 focus-visible:ring-red-500"
-                )}
-              />
-              {errors.commonName && (
-                <motion.p 
-                  className="text-xs text-red-500 mt-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {errors.commonName.message}
-                </motion.p>
-              )}
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium mb-1.5">
-                Serial Number <span className="text-red-500">*</span>
-              </label>
-              <Input 
-                {...register('serialNumber', { onChange: handleFieldChange })} 
-                placeholder="e.g., 00a1b2c3d4e5f6..." 
-                className={cn(
-                  "font-mono text-sm transition-all duration-200",
-                  errors.serialNumber && "ring-1 ring-red-500 focus-visible:ring-red-500"
-                )}
-              />
-              {errors.serialNumber && (
-                <motion.p 
-                  className="text-xs text-red-500 mt-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {errors.serialNumber.message}
-                </motion.p>
-              )}
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium mb-1.5">
-                Central ID <span className="text-red-500">*</span>
-              </label>
-              <Input 
-                {...register('centralID', { onChange: handleFieldChange })} 
-                placeholder="Central ID" 
-                className={cn(
-                  "transition-all duration-200",
-                  errors.centralID && "ring-1 ring-red-500 focus-visible:ring-red-500"
-                )}
-              />
-              {errors.centralID && (
-                <motion.p 
-                  className="text-xs text-red-500 mt-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {errors.centralID.message}
-                </motion.p>
-              )}
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium mb-1.5 flex items-center">
-                Type of Certificate <span className="text-red-500">*</span>
-                <TooltipProvider>
-                  <Tooltip delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 ml-1.5 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-80">
-                      <p className="text-sm">
-                        <strong>Amex Certificate:</strong> Internal certificates issued by American Express CA.
-                        <br /><br />
-                        <strong>Non-Amex Certificate:</strong> External certificates issued by third-party CAs.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </label>
-              <Controller
-                name="isAmexCert"
-                control={control}
-                render={({ field }) => (
-                  <Select 
-                    value={field.value} 
-                    onValueChange={value => { field.onChange(value); handleFieldChange() }}
-                  >
-                    <SelectTrigger className={cn(
-                      "transition-all duration-200",
-                      errors.isAmexCert && "ring-1 ring-red-500 focus-visible:ring-red-500"
-                    )}>
-                      <SelectValue placeholder="Type of Certificate" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Yes">Amex Certificate</SelectItem>
-                      <SelectItem value="No">Non-Amex Certificate</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.isAmexCert && (
-                <motion.p 
-                  className="text-xs text-red-500 mt-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {errors.isAmexCert.message}
-                </motion.p>
-              )}
-            </motion.div>
-            
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium mb-1.5">
-                Application <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="applicationName"
-                control={control}
-                render={({ field }) => (
-                  <Popover open={appOpen} onOpenChange={setAppOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={appOpen}
-                        className={cn(
-                          "w-full justify-between transition-all duration-200",
-                          errors.applicationName && "ring-1 ring-red-500 focus-visible:ring-red-500"
-                        )}
-                      >
-                        {appLoading ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...</>
-                        ) : appError ? (
-                          'Failed to load applications'
-                        ) : field.value ? (
-                          appOptions.find(opt => opt === field.value) || field.value
-                        ) : (
-                          'Select application'
-                        )}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0">
-                      <Command>
-                        <CommandInput placeholder="Search application..." />
-                        <CommandEmpty>No application found.</CommandEmpty>
-                        <CommandGroup>
-                          {appLoading ? (
-                            <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading...
-                            </div>
-                          ) : appError ? (
-                            <div className="flex items-center justify-center p-6 text-sm text-destructive">
-                              {appError}
-                            </div>
-                          ) : (
-                            appOptions.map(app => (
-                              <CommandItem
-                                key={app}
-                                value={app}
-                                onSelect={() => {
-                                  field.onChange(app)
-                                  setAppOpen(false)
-                                  handleFieldChange()
-                                }}
-                              >
-                                <Check className={cn('mr-2 h-4 w-4', field.value === app ? 'opacity-100' : 'opacity-0')} />
-                                {app}
-                              </CommandItem>
-                            ))
-                          )}
-                        </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              />
-              {errors.applicationName && (
-                <motion.p 
-                  className="text-xs text-red-500 mt-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {errors.applicationName.message}
-                </motion.p>
-              )}
-            </motion.div>
-            
-            {isAmexCert === 'No' && (
-              <>
-                <motion.div 
-                  variants={itemVariants}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <Controller
-                    name="validTo"
-                    control={control}
-                    rules={{ required: 'Expiry Date is required' }}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="Expiry Date"
-                        description="Select expiry date"
-                        placeholder="Pick a date"
-                        {...field}
-                        onChange={date => { field.onChange(date); handleFieldChange() }}
-                        value={field.value}
-                      />
-                    )}
-                  />
-                  {errors.validTo && (
-                    <motion.p 
-                      className="text-xs text-red-500 mt-1.5"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      {errors.validTo.message}
-                    </motion.p>
-                  )}
-                </motion.div>
-                
-                <motion.div 
-                  variants={itemVariants}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <label className="block text-sm font-medium mb-1.5">
-                    Environment <span className="text-red-500">*</span>
-                  </label>
-                  <Controller
-                    name="environment"
-                    control={control}
-                    render={({ field }) => (
-                      <Select 
-                        value={field.value} 
-                        onValueChange={value => { field.onChange(value); handleFieldChange() }}
-                      >
-                        <SelectTrigger className={cn(
-                          "transition-all duration-200",
-                          errors.environment && "ring-1 ring-red-500 focus-visible:ring-red-500"
-                        )}>
-                          <SelectValue placeholder="Select Environment" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="E1">E1</SelectItem>
-                          <SelectItem value="E2">E2</SelectItem>
-                          <SelectItem value="E3">E3</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.environment && (
-                    <motion.p 
-                      className="text-xs text-red-500 mt-1.5"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      {errors.environment.message}
-                    </motion.p>
-                  )}
-                </motion.div>
-              </>
-            )}
-            
-            <motion.div 
-              variants={itemVariants}
-              className="md:col-span-2"
-            >
-              <label className="block text-sm font-medium mb-1.5">Comments</label>
-              <Textarea 
-                {...register('comment')} 
-                placeholder="Add any relevant comments about this certificate" 
-                rows={3} 
-                className="resize-none"
-              />
-              {errors.comment && (
-                <motion.p 
-                  className="text-xs text-red-500 mt-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {errors.comment.message}
-                </motion.p>
-              )}
-            </motion.div>
-          </motion.div>
-        </div>
-        
-        <div className="mt-4">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => { setShowMore(prev => !prev); handleFieldChange() }}
-            className="px-0 font-medium text-primary flex items-center hover:bg-transparent hover:text-primary/80"
-          >
-            <div className="flex items-center">
-              <Server className="h-4 w-4 mr-2" />
-              Additional Options
-            </div>
-            <ChevronDown className={cn(
-              "ml-1 h-4 w-4 transition-transform duration-200",
-              showMore && "rotate-180"
-            )} />
-          </Button>
-          
+    <TooltipProvider>
+      <div className="h-full bg-gradient-to-b from-background to-muted/30">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 p-6 overflow-y-auto h-full">
           <AnimatePresence>
-            {showMore && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden"
+            {apiError && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
               >
-                <Separator className="my-3" />
-                <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-3 gap-6 pl-1 pt-2"
-                  variants={staggerChildren}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  <motion.div variants={itemVariants}>
-                    <label className="block text-sm font-medium mb-1.5">Server Name</label>
-                    <Input 
-                      {...register('serverName', { onChange: handleFieldChange })} 
-                      placeholder="e.g., srv-app-01" 
-                    />
-                  </motion.div>
-                  
-                  <motion.div variants={itemVariants}>
-                    <label className="block text-sm font-medium mb-1.5">Key Store Path</label>
-                    <Input 
-                      {...register('keystorePath', { onChange: handleFieldChange })} 
-                      placeholder="e.g., /path/to/keystore" 
-                    />
-                  </motion.div>
-                  
-                  <motion.div variants={itemVariants}>
-                    <label className="block text-sm font-medium mb-1.5">URI</label>
-                    <Input 
-                      {...register('uri', { onChange: handleFieldChange })} 
-                      placeholder="e.g., https://example.com" 
-                    />
-                  </motion.div>
-                </motion.div>
+                <Alert variant="destructive" className="border-destructive/50 bg-destructive/5">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{apiError}</AlertDescription>
+                </Alert>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-        
-        <Separator className="my-4" />
-        
-        <motion.div 
-          className="flex gap-3 pt-3 justify-between"
-          variants={fadeIn}
-          transition={{ delay: 0.4 }}
-        >
-          <DrawerClose asChild>
-            <Button 
-              type="button" 
-              variant="outline" 
-              disabled={isSubmitting}
-              className="flex-1 max-w-[150px]"
-            >
-              Cancel
-            </Button>
-          </DrawerClose>
           
-          <Button 
-            type="submit" 
-            disabled={isSubmitting} 
-            className="flex-1 bg-green-600 hover:bg-green-700 max-w-[150px]"
+          {/* Header Section */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeIn}
+            className="space-y-6"
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding...
-              </>
-            ) : (
-              'Add Certificate'
+            {/* Page Header */}
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">Add New Certificate</h1>
+              <p className="text-muted-foreground text-lg">Create a new certificate entry in the system</p>
+            </div>
+            
+            {/* Certificate Type Card */}
+            <motion.div
+              variants={fadeIn}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className={cn("border-2", certTypeInfo.color)}>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    {certTypeInfo.icon}
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">{certTypeInfo.title}</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">{certTypeInfo.description}</p>
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={cn(
+                        "text-sm font-medium",
+                        isAmexCert === 'Yes'
+                          ? "bg-blue-100 text-blue-800 border-blue-300" 
+                          : "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      )}
+                    >
+                      {isAmexCert === 'Yes' ? 'Internal' : 'External'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+              </Card>
+            </motion.div>
+            
+            {/* Primary Information Section */}
+            <Card className="border-2 border-primary/20 bg-primary/5">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <ClipboardList className="h-5 w-5" />
+                  Primary Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <motion.div 
+                  className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                  variants={staggerChildren}
+                >
+                  {/* Common Name */}
+                  <motion.div variants={itemVariants} className="space-y-2">
+                    <label className="text-sm font-semibold text-foreground flex items-center gap-1">
+                      Common Name 
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <Input 
+                      {...register('commonName', { onChange: handleFieldChange })} 
+                      placeholder="e.g., example.com or *.example.com" 
+                      className={cn(
+                        "h-11 transition-all duration-200 bg-background border-2",
+                        errors.commonName 
+                          ? "border-destructive focus-visible:ring-destructive/20" 
+                          : "border-border focus-visible:ring-primary/20 focus-visible:border-primary"
+                      )}
+                    />
+                    {errors.commonName && (
+                      <motion.p 
+                        className="text-xs text-destructive font-medium"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.commonName.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+                  
+                  {/* Serial Number */}
+                  <motion.div variants={itemVariants} className="space-y-2">
+                    <label className="text-sm font-semibold text-foreground flex items-center gap-1">
+                      Serial Number 
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <Input 
+                      {...register('serialNumber', { onChange: handleFieldChange })} 
+                      placeholder="e.g., 00a1b2c3d4e5f6..." 
+                      className={cn(
+                        "h-11 font-mono text-sm transition-all duration-200 bg-background border-2",
+                        errors.serialNumber 
+                          ? "border-destructive focus-visible:ring-destructive/20" 
+                          : "border-border focus-visible:ring-primary/20 focus-visible:border-primary"
+                      )}
+                    />
+                    {errors.serialNumber && (
+                      <motion.p 
+                        className="text-xs text-destructive font-medium"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.serialNumber.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+                  
+                  {/* Central ID */}
+                  <motion.div variants={itemVariants} className="space-y-2">
+                    <label className="text-sm font-semibold text-foreground flex items-center gap-1">
+                      Central ID 
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <Input 
+                      {...register('centralID', { onChange: handleFieldChange })} 
+                      placeholder="Enter Central ID" 
+                      className={cn(
+                        "h-11 transition-all duration-200 bg-background border-2",
+                        errors.centralID 
+                          ? "border-destructive focus-visible:ring-destructive/20" 
+                          : "border-border focus-visible:ring-primary/20 focus-visible:border-primary"
+                      )}
+                    />
+                    {errors.centralID && (
+                      <motion.p 
+                        className="text-xs text-destructive font-medium"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.centralID.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+                  
+                  {/* Certificate Type */}
+                  <motion.div variants={itemVariants} className="space-y-2">
+                    <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      Certificate Type 
+                      <span className="text-destructive">*</span>
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-80 p-3">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Certificate Types:</p>
+                            <div className="space-y-1 text-xs">
+                              <p><strong>Amex Certificate:</strong> Internal certificates issued by American Express CA.</p>
+                              <p><strong>Non-Amex Certificate:</strong> External certificates issued by third-party CAs.</p>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </label>
+                    <Controller
+                      name="isAmexCert"
+                      control={control}
+                      render={({ field }) => (
+                        <Select 
+                          value={field.value} 
+                          onValueChange={value => { field.onChange(value); handleFieldChange() }}
+                        >
+                          <SelectTrigger className={cn(
+                            "h-11 transition-all duration-200 bg-background border-2",
+                            errors.isAmexCert 
+                              ? "border-destructive focus-visible:ring-destructive/20" 
+                              : "border-border focus-visible:ring-primary/20 focus-visible:border-primary"
+                          )}>
+                            <SelectValue placeholder="Select certificate type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Yes">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-blue-600" />
+                                Amex Certificate
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="No">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                                Non-Amex Certificate
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.isAmexCert && (
+                      <motion.p 
+                        className="text-xs text-destructive font-medium"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.isAmexCert.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+                  
+                  {/* Application */}
+                  <motion.div variants={itemVariants} className="lg:col-span-2 space-y-2">
+                    <label className="text-sm font-semibold text-foreground flex items-center gap-1">
+                      Application 
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <Controller
+                      name="applicationName"
+                      control={control}
+                      render={({ field }) => (
+                        <Popover open={appOpen} onOpenChange={setAppOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={appOpen}
+                              className={cn(
+                                "w-full h-11 justify-between transition-all duration-200 bg-background border-2",
+                                errors.applicationName 
+                                  ? "border-destructive focus-visible:ring-destructive/20" 
+                                  : "border-border focus-visible:ring-primary/20 focus-visible:border-primary"
+                              )}
+                            >
+                              {appLoading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Loading applications...
+                                </>
+                              ) : appError ? (
+                                <span className="text-destructive">Failed to load applications</span>
+                              ) : field.value ? (
+                                appOptions.find(opt => opt === field.value) || field.value
+                              ) : (
+                                <span className="text-muted-foreground">Select application</span>
+                              )}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search application..." className="h-9" />
+                              <CommandEmpty>No application found.</CommandEmpty>
+                              <CommandGroup className="max-h-[200px] overflow-y-auto">
+                                {appLoading ? (
+                                  <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Loading...
+                                  </div>
+                                ) : appError ? (
+                                  <div className="flex items-center justify-center p-6 text-sm text-destructive">
+                                    {appError}
+                                  </div>
+                                ) : (
+                                  appOptions.map(app => (
+                                    <CommandItem
+                                      key={app}
+                                      value={app}
+                                      onSelect={() => {
+                                        field.onChange(app)
+                                        setAppOpen(false)
+                                        handleFieldChange()
+                                      }}
+                                    >
+                                      <Check className={cn('mr-2 h-4 w-4', field.value === app ? 'opacity-100' : 'opacity-0')} />
+                                      {app}
+                                    </CommandItem>
+                                  ))
+                                )}
+                              </CommandGroup>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    />
+                    {errors.applicationName && (
+                      <motion.p 
+                        className="text-xs text-destructive font-medium"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        {errors.applicationName.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+                </motion.div>
+              </CardContent>
+            </Card>
+            
+            {/* Non-Amex Certificate Configuration */}
+            {isAmexCert === 'No' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="border-2 border-emerald-200 bg-emerald-50/30">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-emerald-700">
+                      <Calendar className="h-5 w-5" />
+                      Certificate Configuration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <motion.div 
+                        variants={itemVariants}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-2"
+                      >
+                        <Controller
+                          name="validTo"
+                          control={control}
+                          rules={{ required: 'Expiry Date is required' }}
+                          render={({ field }) => (
+                            <>
+                              <label className="text-sm font-semibold text-foreground flex items-center gap-1">
+                                Expiry Date 
+                                <span className="text-destructive">*</span>
+                              </label>
+                              <DatePicker
+                                placeholder="Select expiry date"
+                                {...field}
+                                onChange={date => { field.onChange(date); handleFieldChange() }}
+                                value={field.value}
+                                className={cn(
+                                  "h-11 border-2",
+                                  errors.validTo 
+                                    ? "border-destructive" 
+                                    : "border-border focus-visible:border-primary"
+                                )}
+                              />
+                            </>
+                          )}
+                        />
+                        {errors.validTo && (
+                          <motion.p 
+                            className="text-xs text-destructive font-medium"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            {errors.validTo.message}
+                          </motion.p>
+                        )}
+                      </motion.div>
+                      
+                      <motion.div 
+                        variants={itemVariants}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-2"
+                      >
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-1">
+                          Environment 
+                          <span className="text-destructive">*</span>
+                        </label>
+                        <Controller
+                          name="environment"
+                          control={control}
+                          render={({ field }) => (
+                            <Select 
+                              value={field.value} 
+                              onValueChange={value => { field.onChange(value); handleFieldChange() }}
+                            >
+                              <SelectTrigger className={cn(
+                                "h-11 transition-all duration-200 bg-background border-2",
+                                errors.environment 
+                                  ? "border-destructive focus-visible:ring-destructive/20" 
+                                  : "border-border focus-visible:ring-primary/20 focus-visible:border-primary"
+                              )}>
+                                <SelectValue placeholder="Select environment" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="E1">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                                    E1 (Production)
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="E2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                                    E2 (Staging)
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="E3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                    E3 (Development)
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {errors.environment && (
+                          <motion.p 
+                            className="text-xs text-destructive font-medium"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            {errors.environment.message}
+                          </motion.p>
+                        )}
+                      </motion.div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             )}
-          </Button>
-        </motion.div>
-      </motion.div>
-    </form>
+            
+            {/* Comments Section */}
+            <Card className="border-2 border-muted bg-muted/30">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-muted-foreground">
+                  <MessageSquare className="h-5 w-5" />
+                  Additional Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <motion.div variants={itemVariants} className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">Comments</label>
+                  <Textarea 
+                    {...register('comment')} 
+                    placeholder="Add any relevant comments about this certificate..." 
+                    rows={4} 
+                    className="resize-none bg-background border-2 border-border focus-visible:border-primary transition-all duration-200"
+                  />
+                  {errors.comment && (
+                    <motion.p 
+                      className="text-xs text-destructive font-medium"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      {errors.comment.message}
+                    </motion.p>
+                  )}
+                </motion.div>
+              </CardContent>
+            </Card>
+            
+            {/* Additional Options */}
+            <Card className="border-2 border-muted">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-muted-foreground">
+                    <Settings2 className="h-5 w-5" />
+                    Server Configuration
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setShowMore(prev => !prev); handleFieldChange() }}
+                    className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                  >
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      showMore && "rotate-180"
+                    )} />
+                    <span className="ml-1">{showMore ? 'Hide' : 'Show'} Options</span>
+                  </Button>
+                </div>
+              </CardHeader>
+              
+              <AnimatePresence>
+                {showMore && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <CardContent className="pt-0">
+                      <motion.div 
+                        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+                        variants={staggerChildren}
+                        initial="hidden"
+                        animate="visible"
+                      >
+                        <motion.div variants={itemVariants} className="space-y-2">
+                          <label className="text-sm font-semibold text-foreground">Server Name</label>
+                          <Input 
+                            {...register('serverName', { onChange: handleFieldChange })} 
+                            placeholder="e.g., srv-app-01" 
+                            className="h-11 bg-background border-2 border-border focus-visible:border-primary transition-all duration-200"
+                          />
+                        </motion.div>
+                        
+                        <motion.div variants={itemVariants} className="space-y-2">
+                          <label className="text-sm font-semibold text-foreground">Keystore Path</label>
+                          <Input 
+                            {...register('keystorePath', { onChange: handleFieldChange })} 
+                            placeholder="e.g., /path/to/keystore" 
+                            className="h-11 bg-background border-2 border-border focus-visible:border-primary transition-all duration-200"
+                          />
+                        </motion.div>
+                        
+                        <motion.div variants={itemVariants} className="space-y-2">
+                          <label className="text-sm font-semibold text-foreground">URI</label>
+                          <Input 
+                            {...register('uri', { onChange: handleFieldChange })} 
+                            placeholder="e.g., https://example.com" 
+                            className="h-11 bg-background border-2 border-border focus-visible:border-primary transition-all duration-200"
+                          />
+                        </motion.div>
+                      </motion.div>
+                    </CardContent>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Card>
+            
+            {/* Action Buttons */}
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-4 pt-6 border-t-2 border-border"
+              variants={fadeIn}
+              transition={{ delay: 0.4 }}
+            >
+              <DrawerClose asChild>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  disabled={isSubmitting}
+                  className="h-12 flex-1 sm:flex-none sm:min-w-[140px] border-2"
+                >
+                  Cancel
+                </Button>
+              </DrawerClose>
+              
+              <Button 
+                type="submit" 
+                disabled={isSubmitting} 
+                className="h-12 flex-1 sm:flex-none sm:min-w-[180px] bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Certificate...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Certificate
+                  </>
+                )}
+              </Button>
+            </motion.div>
+          </motion.div>
+        </form>
+      </div>
+    </TooltipProvider>
   )
-} 
+}
