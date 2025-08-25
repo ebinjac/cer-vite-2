@@ -72,13 +72,13 @@ export function getCertificateCustomStatus(validTo: string): CertificateCustomSt
   }
 }
 
-export const customStatusColors: Record<CertificateCustomStatus, string> = {
+export const getStatusColor: Record<CertificateCustomStatus, string> = {
   'Valid': 'bg-green-100 text-green-800 hover:bg-green-200/80',
   'Expiring Soon': 'bg-amber-100 text-amber-800 hover:bg-amber-200/80',
   'Expired': 'bg-red-100 text-red-800 hover:bg-red-200/80',
 };
 
-export const customStatusIcons: Record<CertificateCustomStatus, React.ReactElement> = {
+export const getStatusIcons: Record<CertificateCustomStatus, React.ReactElement> = {
   'Valid': React.createElement(CheckCircle, { className: "h-4 w-4 text-green-500" }),
   'Expiring Soon': React.createElement(Clock, { className: "h-4 w-4 text-amber-500" }),
   'Expired': React.createElement(XCircle, { className: "h-4 w-4 text-destructive" }),

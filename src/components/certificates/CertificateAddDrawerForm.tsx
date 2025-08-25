@@ -583,12 +583,6 @@ export function CertificateAddDrawerForm({ onSuccess, onCertificateAdded }: { on
                                 {...field}
                                 onChange={date => { field.onChange(date); handleFieldChange() }}
                                 value={field.value}
-                                className={cn(
-                                  "h-11 border-2",
-                                  errors.validTo 
-                                    ? "border-destructive" 
-                                    : "border-border focus-visible:border-primary"
-                                )}
                               />
                             </>
                           )}
